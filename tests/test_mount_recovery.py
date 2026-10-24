@@ -5,10 +5,12 @@ root=Path(__file__).resolve().parents[1]; source=root/'root-payload'
 base=Path(tempfile.mkdtemp(prefix='recovery-',dir=root/'build'))
 passed=[]
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
-def setup(name, scenario='stable'):
+def setup(name, scenario='stable', target_path='/system_ext/lib64/libsurfaceflinger.so'):
  d=base/name;shutil.copytree(source,d)
  (d/'backup').mkdir();(d/'backup/original.so').write_bytes(b'original')
- p=d/'system/system_ext/lib64/libsurfaceflinger.so';p.parent.mkdir(parents=True);p.write_bytes(b'patched')
+ relative=target_path.lstrip('/') if target_path.startswith('/system/') else 'system'+target_path
+ (d/'target.path').write_text(target_path+'\n');(d/'payload.path').write_text(relative+'\n')
+ p=d/relative;p.parent.mkdir(parents=True);p.write_bytes(b'patched')
  (d/'original.sha256').write_text(sha(d/'backup/original.so')+'\n');(d/'patched.sha256').write_text(sha(p)+'\n')
  target=d/'target.so';target.write_bytes(b'original')
  mock=d/'mock';mock.mkdir()
@@ -55,4 +57,19 @@ def installer(changed=False):
  assert r.returncode==(33 if changed else 0),(r.stdout,r.stderr)
 check('generated installer accepts corresponding current library',lambda:installer(False))
 check('generated installer rejects changed file as error',lambda:installer(True))
+for target_path in ['/system/lib64/libsurfaceflinger.so','/system/lib/libsurfaceflinger.so','/vendor/lib64/libsurfaceflinger.so','/product/lib64/libsurfaceflinger.so','/system/system_ext/lib64/libsurfaceflinger.so']:
+ def relocated(target_path=target_path):
+  d,e=setup('relocated-'+target_path.strip('/').replace('/','_'),target_path=target_path)
+  run(d,e,'post-fs-data.sh');assert (d/'boot-pending').exists();(d/'target.so').write_bytes(b'patched')
+  run(d,e,'service.sh');assert (d/'boot-check.txt').read_text().startswith('PASS');assert not (d/'disable').exists()
+ check('target mapping and boot validation '+target_path,relocated)
+def missing_target():
+ d,e=setup('missing_target');(d/'target.path').unlink();run(d,e,'post-fs-data.sh');assert (d/'disable').exists();assert not (d/'props').exists()
+check('missing target metadata never falls back to a hardcoded path',missing_target)
+def wrong_payload():
+ d,e=setup('wrong_payload');(d/'payload.path').write_text('system/lib64/other.so\n');run(d,e,'post-fs-data.sh');assert (d/'disable').exists();assert not (d/'props').exists()
+check('target-payload mismatch blocks overlay',wrong_payload)
+def injection():
+ d,e=setup('injection');(d/'target.path').write_text('/system/lib64/$(touch bad)/libsurfaceflinger.so\n');run(d,e,'post-fs-data.sh');assert (d/'disable').exists();assert not (d/'props').exists()
+check('target metadata is data and never sourced as a shell program',injection)
 print('ALL PASS',len(passed));print('FIXTURE_DIR',base)

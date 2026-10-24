@@ -1,11 +1,11 @@
-小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.0
+小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.1
 
 本机适配
 小米 17 Ultra / nezha，HyperOS OS4.0.4.0.XPACNXM，Android 17（SDK 37）。
 小米截屏：com.miui.screenshot，RELEASE-1.6.3.41-09181700 / 10603041。
 安装 APK 后在 LSPosed 启用模块，仅勾选“小米截屏”。不替换系统 APK。
 设置页“生成挂载模块”会读取本机库并生成对应 KSU/Magisk ZIP；“生成并安装挂载模块”会进一步安装。两者都需要本应用 Root 权限。
-生成文件位于当前 Android 用户的 Download/MI-Screen-HDR-Enhanced/MI-Screen-HDR-Enhanced-mount-1.3.0.zip。
+生成文件位于当前 Android 用户的 Download/MI-Screen-HDR-Enhanced/MI-Screen-HDR-Enhanced-mount-1.3.1.zip。
 
 功能
 - LSPosed native_init 注入 libmiuihdr.so，拦截截屏进程暂时关闭 HDR 的调用。

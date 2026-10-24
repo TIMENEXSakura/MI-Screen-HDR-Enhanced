@@ -1,4 +1,4 @@
-小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.0 — 动态生成的挂载模块
+小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.1 — 动态生成的挂载模块
 
 此 ZIP 由 Xposed APK 的“生成挂载模块”在本机生成。
 APK 内只有生成器及脚本模板，不内置或分发某台设备的完整系统 SO。
@@ -6,7 +6,11 @@ APK 内只有生成器及脚本模板，不内置或分发某台设备的完整�
 指令不存在、存在多处匹配、文件损坏或写入失败均作为生成错误退出，原库保持原样。
 生成时同时保存原库和补丁库；安装时发现系统库已经变化，需要在 APK 中重新生成。
 
-目标：/system_ext/lib64/libsurfaceflinger.so。
+目标：按 SurfaceFlinger 实际加载映射和系统库目录定位 libsurfaceflinger.so。
+搜索 system / system_ext / product / vendor / odm、system_root 别名及 APEX 下的 lib/lib64。
+生成包用 target.path / payload.path 记录目标，安装、启动检查及回退复用同一位置。
+当前可生成标准 system、system_ext、product、vendor 覆盖；APEX/ODM 等不支持的挂载位置明确报错。
+指令补丁仍要求匹配的 ELF64 AArch64 实现；发现32位库不代表能套用64位补丁。
 模块 ID 沿用 xiaomi17u_hdr_clamp_test，升级现有底层模块，避免两份库同时覆盖。
 KSU / SukiSU 使用已有 Mountify；Magisk 使用自身挂载机制。生成 ZIP 不要求已安装 Mountify。
 原 hdr_screenshot_tonemap 属性模块在 APK 成功安装整合包后才被停用。

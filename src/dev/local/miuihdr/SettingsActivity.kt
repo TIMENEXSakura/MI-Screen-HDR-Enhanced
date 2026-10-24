@@ -132,7 +132,7 @@ class SettingsActivity : ComponentActivity() {
                 TextButton(onClick = { page = 1 }) { Text("打开 HDR 测试"); Icon(Icons.Default.ArrowForward, null, Modifier.padding(start = 8.dp).size(18.dp)) }
             }
         }
-        Text("1.3.0  ·  小米原生截屏增强", style = MaterialTheme.typography.labelMedium,
+        Text("1.3.1  ·  小米原生截屏增强", style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
     }
     @Composable private fun HomeTile(title: String, subtitle: String, icon: ImageVector, modifier: Modifier, action: () -> Unit) {

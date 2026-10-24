@@ -3,6 +3,7 @@
 [ "${KSU_LATE_LOAD:-0}" != 1 ] || abort "Boot-time mounting unavailable in late-load mode."
 MODDIR=$MODPATH
 . "$MODPATH/common.sh"
+[ "$HDR_CONFIG_OK" = 1 ] || abort "Missing or invalid library target; regenerate in the Xposed APK."
 if [ "${KSU:-false}" = true ]; then
  HDR_META=/data/adb/modules/mountify
  [ -f "$HDR_META/metamount.sh" ] && [ ! -e "$HDR_META/disable" ] && [ ! -e "$HDR_META/remove" ] || abort "Mountify unavailable; existing setup retained."
@@ -23,4 +24,5 @@ for marker in skip_mount skip_mountify boot-pending rollback.txt; do
 done
 case "$(getprop persist.sys.locale)" in zh*) sed -i 's/^name=.*/name=小米截屏HDR增强/' "$MODPATH/module.prop";; esac
 ui_print "- Device library patched; original library backed up."
+ui_print "- Target: $HDR_TARGET"
 ui_print "- Pending boot validation; no SurfaceFlinger restart performed."

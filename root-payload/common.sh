@@ -1,12 +1,30 @@
 #!/system/bin/sh
-HDR_TARGET=${HDR_TARGET:-/system_ext/lib64/libsurfaceflinger.so}
-HDR_PAYLOAD_REL=system/system_ext/lib64/libsurfaceflinger.so
+hdr_load_target() {
+ [ -f "$MODDIR/target.path" ] && [ -f "$MODDIR/payload.path" ] || return 1
+ local target payload expected
+ target=$(cat "$MODDIR/target.path")
+ payload=$(cat "$MODDIR/payload.path")
+ case "$target" in *[!A-Za-z0-9_./+@-]*|*'/../'*|*'/./'*|*'//'*) return 1;; esac
+ case "$target" in */libsurfaceflinger.so) ;; *) return 1;; esac
+ case "$target" in
+  /system/lib/*|/system/lib64/*|/system/system_ext/lib/*|/system/system_ext/lib64/*|/system/product/lib/*|/system/product/lib64/*|/system/vendor/lib/*|/system/vendor/lib64/*) expected=${target#/};;
+  /system_ext/lib/*|/system_ext/lib64/*|/product/lib/*|/product/lib64/*|/vendor/lib/*|/vendor/lib64/*) expected=system$target;;
+  *) return 1;;
+ esac
+ [ "$payload" = "$expected" ] || return 1
+ # Explicit HDR_TARGET overrides are used by isolated host tests.
+ HDR_TARGET=${HDR_TARGET:-$target}
+ HDR_PAYLOAD_REL=$payload
+}
+HDR_CONFIG_OK=0
+if hdr_load_target; then HDR_CONFIG_OK=1; fi
 hdr_sha() { local value; value=$(sha256sum "$1" 2>/dev/null) || return 1; printf '%s\n' "${value%% *}"; }
 hdr_error() {
  printf 'ERROR: %s\n' "$1" >> "$MODDIR/rollback.txt"
  touch "$MODDIR/disable" "$MODDIR/skip_mount" "$MODDIR/skip_mountify"
 }
 hdr_files_ok() {
+ [ "$HDR_CONFIG_OK" = 1 ] || return 1
  [ -f "$MODDIR/original.sha256" ] && [ -f "$MODDIR/patched.sha256" ] || return 1
  HDR_ORIGINAL=$(cat "$MODDIR/original.sha256")
  HDR_PATCHED=$(cat "$MODDIR/patched.sha256")

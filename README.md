@@ -24,6 +24,14 @@
 - APK 按实际库指令生成底层补丁，不按机型名称限制；匹配失败、指令歧义和文件损坏会报错退出。
 - 生成的挂载模块包含原库备份、启动监测和错误回退。
 
+## 1.3.1：库路径自动定位
+
+优先检查 SurfaceFlinger 实际加载的库，再搜索 `system`、`system_ext`、`product`、`vendor`、`odm`、`system_root` 别名和 APEX 的 `lib` / `lib64` 目录。别名去重后，按实际位置生成挂载目录，安装、启动检查及回退均使用该路径。
+
+未找到库、架构不支持、指令不匹配、多个目标匹配和挂载位置不支持会分别报告。定位详情保存为 `Download/MI-Screen-HDR-Enhanced/mount-diagnostics-1.3.1.txt`。当前标准覆盖支持 system / system_ext / product / vendor；发现 APEX / ODM 库不等于已有对应挂载支持。
+
+路径兼容不改变指令补丁的架构要求：仍需 ELF64 AArch64 及匹配的指令特征。应用最低 Android 版本仍为 Android 14 / API 34。
+
 ## 兼容性与验证范围
 
 已验证环境：小米 17 Ultra（nezha），HyperOS OS4.0.4.0.XPACNXM，Android 17 / SDK 37；小米截屏 RELEASE-1.6.3.41-09181700（10603041）。
@@ -54,10 +62,14 @@ SO 在 APK 中需保持不压缩并按 16 KB 对齐，供 LSPosed 直接加载�
 
 ## 测试与回退
 
-运行不接触真实系统的恢复逻辑模拟测试：
+运行不接触真实系统的路径定位、指令匹配与恢复逻辑测试（需要 JDK、Python 3 和 C 编译器）：
 
 ```sh
 python3 tests/test_mount_recovery.py
+python3 tests/test_patch_probe.py
+mkdir -p build/locator-tests
+javac -d build/locator-tests src/dev/local/miuihdr/LibraryLocator.java tests/LibraryLocatorTest.java
+java -cp build/locator-tests dev.local.miuihdr.LibraryLocatorTest
 ```
 
 `tests/ShellTest.java` 和 `tests/HdrInspect.java` 用于设备侧验证。带壳测试需自行提供对应的小米截图 APK 和机壳素材，仓库不分发这些文件。

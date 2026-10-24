@@ -16,14 +16,17 @@ static const unsigned char suffix[]={0x01,0x10,0x2e,0x1e,0xa0,0x46,0x41,0xbd,0x0
 static const unsigned char original[]={0xa0,0x01,0x00,0x36},patched[]={0x0d,0x00,0x00,0x14};
 static int fail(const char *s){fprintf(stderr,"PATCH_ERROR: %s\n",s);return 1;}
 int main(int argc,char **argv){
- if(argc!=4||(strcmp(argv[1],"patch")&&strcmp(argv[1],"restore")))return fail("usage: hdrpatch patch|restore input output");
+ int probe=argc==3&&!strcmp(argv[1],"probe");
+ if(!probe&&(argc!=4||(strcmp(argv[1],"patch")&&strcmp(argv[1],"restore"))))return fail("usage: hdrpatch probe input | patch|restore input output");
  FILE *in=fopen(argv[2],"rb");if(!in)return fail("cannot read input");
  if(fseek(in,0,SEEK_END)){fclose(in);return fail("seek failed");}
  long length=ftell(in);rewind(in);if(length<(long)sizeof(Elf64_Ehdr)||length>128*1024*1024){fclose(in);return fail("invalid ELF size");}
  size_t size=(size_t)length;unsigned char *data=malloc(size);if(!data){fclose(in);return fail("out of memory");}
  if(fread(data,1,size,in)!=size){fclose(in);free(data);return fail("short read");}fclose(in);
  Elf64_Ehdr eh;memcpy(&eh,data,sizeof(eh));
- if(memcmp(eh.e_ident,ELFMAG,SELFMAG)||eh.e_ident[EI_CLASS]!=ELFCLASS64||eh.e_ident[EI_DATA]!=ELFDATA2LSB||eh.e_machine!=EM_AARCH64||eh.e_type!=ET_DYN||eh.e_phentsize!=sizeof(Elf64_Phdr)||eh.e_phoff>size||(uint64_t)eh.e_phnum*sizeof(Elf64_Phdr)>size-eh.e_phoff){free(data);return fail("unsupported or malformed ELF");}
+ if(memcmp(eh.e_ident,ELFMAG,SELFMAG)){free(data);return fail("malformed ELF header");}
+ if(eh.e_ident[EI_CLASS]!=ELFCLASS64||eh.e_ident[EI_DATA]!=ELFDATA2LSB||eh.e_machine!=EM_AARCH64){free(data);return fail("unsupported ELF architecture (requires ELF64 AArch64); original retained");}
+ if(eh.e_type!=ET_DYN||eh.e_phentsize!=sizeof(Elf64_Phdr)||eh.e_phoff>size||(uint64_t)eh.e_phnum*sizeof(Elf64_Phdr)>size-eh.e_phoff){free(data);return fail("unsupported or malformed ELF");}
  size_t match=0,count=0;
  for(unsigned n=0;n<eh.e_phnum;n++){
   Elf64_Phdr ph;memcpy(&ph,data+eh.e_phoff+n*sizeof(ph),sizeof(ph));
@@ -35,6 +38,7 @@ int main(int argc,char **argv){
   }
  }
  if(count!=1){free(data);return fail(count?"ambiguous clamp sequence; original retained":"clamp sequence not found; original retained");}
+ if(probe){printf("PATCH_MATCH offset=0x%zx architecture=ELF64_AARCH64\n",match);free(data);return 0;}
  int wasPatched=!memcmp(data+match,patched,4);memcpy(data+match,!strcmp(argv[1],"patch")?patched:original,4);
  char temp[4096];if(snprintf(temp,sizeof(temp),"%s.tmp.%ld",argv[3],(long)getpid())>=(int)sizeof(temp)){free(data);return fail("output path too long");}
  int fd=open(temp,O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0600);if(fd<0){free(data);return fail("cannot create output");}

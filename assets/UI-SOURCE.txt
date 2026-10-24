@@ -1,0 +1,18 @@
+UI FRAMEWORK AND DESIGN SYSTEM
+Google / AndroidX: Jetpack Compose Material 3, Apache License 2.0.
+Design system: Google Material 3 Expressive.
+https://developer.android.com/jetpack/androidx/releases/compose-material3
+https://m3.material.io/
+Source: https://android.googlesource.com/platform/frameworks/support/+/androidx-main/compose/material3/
+
+THIRD-PARTY CODE ATTRIBUTION (NOT THE UI FRAMEWORK)
+SukiSU-Ultra, GPL-3.0, commit df84920b20a925fd1135530f6e403361ad494d7b:
+- manager/app/src/main/java/com/sukisu/ultra/ui/theme/Shape.kt
+- manager/app/src/main/java/com/sukisu/ultra/ui/theme/Type.kt
+- Adapted theme configuration and component/bottombar/BottomBarMaterial.kt navigation code.
+https://github.com/SukiSU-Ultra/SukiSU-Ultra/tree/df84920b20a925fd1135530f6e403361ad494d7b/manager/app/src/main/java/com/sukisu/ultra/ui
+SukiSU is the source of these reused snippets. It is not the author of Material 3, AndroidX or Compose.
+This screenshot module is independent of SukiSU. Corresponding module source accompanies the APK.
+
+MaterialKolor: https://github.com/jordond/MaterialKolor (MIT).
+HDR photo: see HDR-PHOTO-CREDIT.txt and HDR-PHOTO-LICENSE.txt.

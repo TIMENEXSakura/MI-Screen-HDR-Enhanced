@@ -1,0 +1,5 @@
+Ultra_HDR_Samples_Originals_05.jpg
+Photograph by Mishaal Rahman
+https://github.com/MishaalRahmanGH/Ultra_HDR_Samples
+CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+Original JPEG is bundled without modification. Display preview may be downsampled; SDR comparison omits its gain map.

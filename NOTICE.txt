@@ -1,0 +1,25 @@
+MI Screen HDR Enhanced / 小米截屏HDR增强
+Project source license: GNU General Public License, version 3 (LICENSE).
+
+Google / AndroidX Jetpack Compose Material 3 and Gradle wrapper
+Apache License 2.0; see assets/APACHE-2.0.txt.
+
+SukiSU-Ultra
+Adapted theme and navigation code, GPL-3.0.
+Exact revision and source files: assets/UI-SOURCE.txt.
+
+MaterialKolor
+MIT License: assets/MATERIALKOLOR-LICENSE.txt.
+
+HDR test photograph by Mishaal Rahman
+CC BY 4.0: assets/HDR-PHOTO-CREDIT.txt and assets/HDR-PHOTO-LICENSE.txt.
+
+XposedBridge / Xposed API
+Copyright 2013 rovo89, Tungstwenty.
+Apache License 2.0: assets/APACHE-2.0.txt.
+https://github.com/rovo89/XposedBridge
+The API JAR is a compile-only dependency; no Xposed runtime is bundled.
+
+System software and downloaded device-shell artwork
+Not distributed in this source repository or public release assets.
+Generated mount packages are produced locally from the device's own library.

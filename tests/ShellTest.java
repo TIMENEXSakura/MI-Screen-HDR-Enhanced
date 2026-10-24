@@ -1,0 +1,48 @@
+package dev.local.miuihdr;
+import android.graphics.*;import java.io.*;import java.lang.reflect.*;import java.util.*;
+public class ShellTest {
+ static final class DrawFixture { private java.util.List<Object> mNodeList=java.util.Collections.singletonList(new Object()); private Bitmap mErasableBitmap; }
+ static void invoke(Object e,String n,File f)throws Exception{Method m=e.getClass().getDeclaredMethod(n,File.class);m.setAccessible(true);m.invoke(e,f);}
+ static double hdr(Bitmap b,int x,int y,int channel){Gainmap g=b.getGainmap();Bitmap map=g.getGainmapContents();int q=map.getPixel(x*map.getWidth()/b.getWidth(),y*map.getHeight()/b.getHeight());int v=map.getConfig()==Bitmap.Config.ALPHA_8?q>>>24:((q>>(16-channel*8))&255);float[] min=g.getRatioMin(),max=g.getRatioMax(),gam=g.getGamma(),es=g.getEpsilonSdr(),eh=g.getEpsilonHdr();float c=b.getColor(x,y).getComponents()[channel];double lin=((ColorSpace.Rgb)b.getColorSpace()).getEotf().applyAsDouble(c);return (lin+es[channel])*Math.exp(Math.log(min[channel])+(Math.log(max[channel])-Math.log(min[channel]))*Math.pow(v/255.0,gam[channel]))-eh[channel];}
+ static void check(boolean b,String s){if(!b)throw new AssertionError(s);System.out.println("PASS "+s);}
+ public static void main(String[] args){try{run(args);}catch(Throwable t){t.printStackTrace();System.exit(1);}}
+ public static void run(String[] args)throws Exception{
+  System.load(args[0]);NativeBridge.loaded=true;String root=args[1];Class<?> cls=Class.forName("com.miui.gallery.editor.photo.screen.shell.ScreenShellEntry");Constructor<?> ctor=cls.getDeclaredConstructor();ctor.setAccessible(true);Object entry=ctor.newInstance();invoke(entry,"initJson",new File(root,"shell.json"));invoke(entry,"initPic",new File(root,"shell.png"));invoke(entry,"initSVG",new File(root,"shell.svg"));Method apply=cls.getMethod("apply",Bitmap.class);
+  // A controlled screen-shaped image, constant SDR base with 1x / 2x / 4x gain.
+  Bitmap source=Bitmap.createBitmap(1200,2608,Bitmap.Config.ARGB_8888,true,ColorSpace.get(ColorSpace.Named.DISPLAY_P3));source.eraseColor(Color.rgb(180,180,180));
+  Bitmap gm=Bitmap.createBitmap(600,1304,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(gm);Paint p=new Paint();for(int i=0;i<3;i++){p.setColor(Color.rgb(i*127,i*127,i*127));c.drawRect(0,i*1304/3f,600,(i+1)*1304/3f,p);}Gainmap g=new Gainmap(gm);g.setRatioMin(1,1,1);g.setRatioMax(4,4,4);g.setGamma(1,1,1);g.setEpsilonSdr(1f/64,1f/64,1f/64);g.setEpsilonHdr(1f/64,1f/64,1f/64);g.setDisplayRatioForFullHdr(4);g.setMinDisplayRatioForHdrTransition(1);source.setGainmap(g);
+  Bitmap result=(Bitmap)apply.invoke(entry,source);System.out.println("BASELINE hasGainmap="+result.hasGainmap()+" dims="+result.getWidth()+"x"+result.getHeight());Bitmap baseline=result.copy(Bitmap.Config.ARGB_8888,false);
+  long t=System.nanoTime();check(ShellGainmap.repair(entry,source,result),"shell repair returned HDR");System.out.println("COMPOSE_MS="+(System.nanoTime()-t)/1e6);check(result.sameAs(baseline),"SDR base unchanged");
+  Field dstField=cls.getDeclaredField("mDstArea");Object info=cls.getMethod("getShellInfo").invoke(entry);float left=info.getClass().getField("leftMargin").getFloat(info),top=info.getClass().getField("topMargin").getFloat(info),width=info.getClass().getField("with").getFloat(info),height=info.getClass().getField("height").getFloat(info);
+  for(int i=0;i<3;i++){int sy=(int)((i+.5)*2608/3);int y=(int)(top+(i+.5)*height/3),x=(int)(left+width/2);double before=hdr(source,600,sy,0),after=hdr(result,x,y,0);System.out.println("PATCH "+i+" input="+before+" shell="+after+" xy="+x+","+y);check(Math.abs(after/before-1)<.015,"patch "+i+" brightness preserved");}
+  ByteArrayOutputStream pngBytes=new ByteArrayOutputStream();check(result.compress(Bitmap.CompressFormat.PNG,100,pngBytes),"PNG encode");byte[] png=pngBytes.toByteArray();Bitmap pngDecode=BitmapFactory.decodeByteArray(png,0,png.length);
+  check(pngDecode.hasGainmap()&&pngDecode.hasAlpha(),"PNG roundtrip keeps HDR and alpha");int[] beforePixels=new int[result.getWidth()*result.getHeight()],afterPixels=new int[beforePixels.length];result.getPixels(beforePixels,0,result.getWidth(),0,0,result.getWidth(),result.getHeight());pngDecode.getPixels(afterPixels,0,result.getWidth(),0,0,result.getWidth(),result.getHeight());int alphaError=0,premulError=0;for(int i=0;i<beforePixels.length;i++){int aa=beforePixels[i]>>>24,ab=afterPixels[i]>>>24;alphaError=Math.max(alphaError,Math.abs(aa-ab));for(int ch=0;ch<3;ch++){int ca=(beforePixels[i]>>(ch*8))&255,cb=(afterPixels[i]>>(ch*8))&255;premulError=Math.max(premulError,Math.abs(ca*aa-cb*ab)/255);}}System.out.println("PNG_ROUNDTRIP alphaError="+alphaError+" premultipliedChannelError="+premulError);check(alphaError==0&&premulError<=2,"PNG base and alpha survive codec roundtrip");check(Color.alpha(pngDecode.getPixel(0,0))==0,"PNG outer corner remains transparent");
+  for(int i=0;i<3;i++){int x=(int)(left+width/2),y=(int)(top+(i+.5)*height/3);check(Math.abs(hdr(pngDecode,x,y,0)/hdr(source,600,(int)((i+.5)*2608/3),0)-1)<.015,"PNG patch "+i+" brightness preserved");}
+  Bitmap opaque=ShellGainmap.flattenForJpeg(result);check(!opaque.hasAlpha()&&opaque.hasGainmap(),"opaque Ultra HDR JPEG preparation");check(Math.abs(hdr(opaque,0,0,0)-1)<.015,"white JPEG matte stays SDR");result=opaque;
+  File file=new File(args[2]);try(OutputStream out=new FileOutputStream(file)){check(result.compress(Bitmap.CompressFormat.JPEG,100,out),"JPEG encode");}Bitmap decode=BitmapFactory.decodeFile(file.toString());check(decode.hasGainmap(),"JPEG roundtrip HDR");
+  for(int i=0;i<3;i++){int x=(int)(left+width/2),y=(int)(top+(i+.5)*height/3);check(Math.abs(hdr(decode,x,y,0)/hdr(source,600,(int)((i+.5)*2608/3),0)-1)<.03,"JPEG patch "+i+" brightness preserved");}
+  int[] sample={0,0,10,10,(int)left/2,(int)(top+height/2)};for(int i=0;i<sample.length;i+=2){int x=sample[i],y=sample[i+1];float v=result.getColor(x,y).red();double lin=((ColorSpace.Rgb)result.getColorSpace()).getEotf().applyAsDouble(v);check(Math.abs(hdr(result,x,y,0)-lin)<.002,"shell stays SDR "+x+","+y);}
+  Bitmap sdr=source.copy(Bitmap.Config.ARGB_8888,false);sdr.setGainmap(null);Bitmap sdrOut=(Bitmap)apply.invoke(entry,sdr);check(!ShellGainmap.repair(entry,sdr,sdrOut)&&!sdrOut.hasGainmap(),"SDR left SDR");Bitmap sdrJpeg=ShellGainmap.flattenForJpeg(sdrOut);check(!sdrJpeg.hasAlpha()&&!sdrJpeg.hasGainmap()&&sdrJpeg.getPixel(0,0)==Color.WHITE,"SDR JPG shell gets white matte without gainmap");Class<?> drawClass=Class.forName("com.miui.gallery.editor.photo.screen.core.ScreenDrawEntry");
+  Object draw=drawClass.getConstructor(RectF.class,List.class,RectF.class,boolean.class).newInstance(new RectF(0,0,1200,2608),Collections.emptyList(),new RectF(0,0,1200,2608),false);
+  Bitmap drawn=(Bitmap)drawClass.getMethod("apply",Bitmap.class,boolean.class).invoke(draw,source,true);
+  check(!drawn.hasGainmap(),"reproduced gainmap loss in Xiaomi pre-shell editor draw");
+  check(ShellGainmap.repairDraw(draw,source,drawn)&&drawn.hasGainmap(),"editor draw gainmap restored");
+  Bitmap full=(Bitmap)apply.invoke(entry,drawn);check(ShellGainmap.repair(entry,drawn,full),"editor-to-shell chain HDR restored");
+  for(int i=0;i<3;i++){int x=(int)(left+width/2),y=(int)(top+(i+.5)*height/3);check(Math.abs(hdr(full,x,y,0)/hdr(source,600,(int)((i+.5)*2608/3),0)-1)<.02,"full editor/shell chain brightness "+i);}
+  // Alpha-only maps (the format used by real Ultra HDR photos), per-channel metadata,
+  // fractional gamma and unequal epsilon must survive the same compositor.
+  Bitmap alpha=Bitmap.createBitmap(600,1304,Bitmap.Config.ALPHA_8);Canvas ac=new Canvas(alpha);Paint ap=new Paint();
+  for(int i=0;i<3;i++){ap.setColor(Color.WHITE);ap.setAlpha(i*127);ac.drawRect(0,i*1304/3f,600,(i+1)*1304/3f,ap);}
+  Gainmap ag=new Gainmap(alpha);ag.setRatioMin(.7f,.8f,1);ag.setRatioMax(4,3,6);ag.setGamma(.8f,1.4f,2);ag.setEpsilonSdr(.01f,.02f,.03f);ag.setEpsilonHdr(.003f,.004f,.005f);ag.setDisplayRatioForFullHdr(6);ag.setMinDisplayRatioForHdrTransition(1);source.setGainmap(ag);
+  Bitmap alphaOut=(Bitmap)apply.invoke(entry,source);check(ShellGainmap.repair(entry,source,alphaOut),"alpha-only repair");
+  for(int i=0;i<3;i++)for(int channel=0;channel<3;channel++){int y=(int)(top+(i+.5)*height/3),x=(int)(left+width/2);double before=hdr(source,600,(int)((i+.5)*2608/3),channel),after=hdr(alphaOut,x,y,channel);System.out.println("ALPHA_PATCH "+i+","+channel+" input="+before+" output="+after);check(Math.abs(after/before-1)<.02,"ALPHA_8 gamma/epsilon/channel "+i+","+channel);}
+  // Corners clipped by Xiaomi's SVG must not retain the screen's gain.
+  int cx=(int)left,cy=(int)top;float corner=alphaOut.getColor(cx,cy).red();double cornerLinear=((ColorSpace.Rgb)alphaOut.getColorSpace()).getEotf().applyAsDouble(corner);check(Math.abs(hdr(alphaOut,cx,cy,0)-cornerLinear)<.003,"SVG cutout stays neutral");
+  DrawFixture annotated=new DrawFixture();annotated.mErasableBitmap=Bitmap.createBitmap(1200,2608,Bitmap.Config.ARGB_8888,true,source.getColorSpace());
+  Canvas overlayCanvas=new Canvas(annotated.mErasableBitmap);Paint pen=new Paint();pen.setColor(Color.WHITE);overlayCanvas.drawRect(200,1900,1000,2300,pen);
+  Bitmap marked=source.copy(Bitmap.Config.ARGB_8888,true);new Canvas(marked).drawBitmap(annotated.mErasableBitmap,0,0,null);
+  check(ShellGainmap.repairDraw(annotated,source,marked),"annotated draw repaired");
+  for(int channel=0;channel<3;channel++){check(Math.abs(hdr(marked,600,2100,channel)-1)<.015,"opaque annotation remains SDR channel "+channel);check(Math.abs(hdr(marked,600,1300,channel)/hdr(source,600,1300,channel)-1)<.02,"uncovered image keeps HDR channel "+channel);}
+  System.out.println("ALL PASS");
+ }
+}

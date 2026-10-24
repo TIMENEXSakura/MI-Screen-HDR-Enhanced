@@ -1,0 +1,6 @@
+id=xiaomi17u_hdr_clamp_test
+name=MI Screen HDR Enhanced
+version=1.3.0
+versionCode=130
+author=Local device fix
+description=Device-local HDR capture patch and tonemap flags, with original-library backup and error rollback. Unified APK provides Xiaomi screenshot hooks and controls.

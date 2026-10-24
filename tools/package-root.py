@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the embedded KSU/Magisk payload from the distributed source."""
+"""Build the embedded Magisk/KernelSU/APatch payload from the distributed source."""
 from pathlib import Path
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 

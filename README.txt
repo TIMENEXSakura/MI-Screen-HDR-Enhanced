@@ -1,11 +1,11 @@
-小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.1
+小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.2
 
 本机适配
 小米 17 Ultra / nezha，HyperOS OS4.0.4.0.XPACNXM，Android 17（SDK 37）。
 小米截屏：com.miui.screenshot，RELEASE-1.6.3.41-09181700 / 10603041。
 安装 APK 后在 LSPosed 启用模块，仅勾选“小米截屏”。不替换系统 APK。
-设置页“生成挂载模块”会读取本机库并生成对应 KSU/Magisk ZIP；“生成并安装挂载模块”会进一步安装。两者都需要本应用 Root 权限。
-生成文件位于当前 Android 用户的 Download/MI-Screen-HDR-Enhanced/MI-Screen-HDR-Enhanced-mount-1.3.1.zip。
+设置页“生成挂载模块”会读取本机库并生成对应 Magisk/KernelSU/APatch ZIP；“生成并安装挂载模块”会进一步安装。两者都需要本应用 Root 权限。
+生成文件位于当前 Android 用户的 Download/MI-Screen-HDR-Enhanced/MI-Screen-HDR-Enhanced-mount-1.3.2.zip。
 
 功能
 - LSPosed native_init 注入 libmiuihdr.so，拦截截屏进程暂时关闭 HDR 的调用。
@@ -43,7 +43,7 @@ UI 框架：Google / AndroidX Jetpack Compose Material 3，Apache-2.0。
 
 回退
 关闭 LSPosed 中本模块并结束、重启“小米截屏”进程即可停止 Hook。
-底层挂载模块 ID 为 xiaomi17u_hdr_clamp_test，在 KSU / Magisk 中禁用并重启可停止覆盖。
+底层挂载模块 ID 为 xiaomi17u_hdr_clamp_test，在 Magisk / KernelSU / APatch 中禁用并重启可停止覆盖。
 卸载 APK 不会卸载既有底层修复模块。
 
 构建
@@ -57,3 +57,8 @@ SO 必须在 APK 内不压缩并按 16 KB 对齐，供 LSPosed 直接从 APK 加
 测试入口
 NativeProbeEntry 在原本非导出的 TakeScreenshotService 中处理 dev.local.miuihdr.ROOT_CAPTURE_TEST，仅 root/system 可进入；请求仍走小米原生 Messenger。
 测试源码 ShellTest.java 需要在本机 app_process 中与自己的小米截屏 APK 一起运行，不随源码分发系统 APK 或机壳素材。
+
+1.3.2 挂载兼容
+根据当前 Root 提供者选择安装入口。沿用已有 Magic Mount、OverlayFS、Mountify 或兼容元模块，不再强制依赖 Mountify。
+兼容安装器移动分区目录，保留挂载提供者的跳过标记。Mountify 手动选择未包含本模块时会报告原因，不修改全局配置。
+安装后须经过下次启动验证才确认底层覆盖生效；本机仅验证 SukiSU + Mountify 的生成流程，其他组合属于模拟验证。

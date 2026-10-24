@@ -6,7 +6,7 @@ android {
  namespace = "dev.local.miuihdr"
  compileSdk = 37
  buildToolsVersion = "37.0.0"
- defaultConfig { applicationId = "dev.local.miuihdr"; minSdk = 34; targetSdk = 36; versionCode = 7; versionName = "1.3.1"; ndk { abiFilters += "arm64-v8a" } }
+ defaultConfig { applicationId = "dev.local.miuihdr"; minSdk = 34; targetSdk = 36; versionCode = 8; versionName = "1.3.2"; ndk { abiFilters += "arm64-v8a" } }
  sourceSets.getByName("main") { manifest.srcFile("AndroidManifest.xml"); java.srcDirs("src"); res.srcDirs("res"); assets.srcDirs("assets"); jniLibs.srcDirs("lib") }
  buildFeatures { compose = true }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }

@@ -1,4 +1,5 @@
 #!/system/bin/sh
+. "$MODDIR/backend.sh"
 hdr_load_target() {
  [ -f "$MODDIR/target.path" ] && [ -f "$MODDIR/payload.path" ] || return 1
  local target payload expected
@@ -14,6 +15,7 @@ hdr_load_target() {
  [ "$payload" = "$expected" ] || return 1
  # Explicit HDR_TARGET overrides are used by isolated host tests.
  HDR_TARGET=${HDR_TARGET:-$target}
+ HDR_PACKAGE_PAYLOAD_REL=$payload
  HDR_PAYLOAD_REL=$payload
 }
 HDR_CONFIG_OK=0
@@ -30,7 +32,19 @@ hdr_files_ok() {
  HDR_PATCHED=$(cat "$MODDIR/patched.sha256")
  [ "${#HDR_ORIGINAL}" = 64 ] && [ "${#HDR_PATCHED}" = 64 ] || return 1
  [ "$(hdr_sha "$MODDIR/backup/original.so")" = "$HDR_ORIGINAL" ] || return 1
- [ "$(hdr_sha "$MODDIR/$HDR_PAYLOAD_REL")" = "$HDR_PATCHED" ] || return 1
+ # Magisk/Mountify retain system/<partition>; other installers may move it to
+ # <partition> and optionally leave a compatibility symlink behind.
+ local relative moved found
+ relative=$HDR_PACKAGE_PAYLOAD_REL
+ moved= found=
+ case "$relative" in system/system_ext/*|system/product/*|system/vendor/*) moved=${relative#system/};; esac
+ for relative in "$HDR_PACKAGE_PAYLOAD_REL" "$moved"; do
+  [ -n "$relative" ] && [ -f "$MODDIR/$relative" ] || continue
+  [ "$(hdr_sha "$MODDIR/$relative")" = "$HDR_PATCHED" ] || return 1
+  [ -n "$found" ] || found=$relative
+ done
+ [ -n "$found" ] || return 1
+ HDR_PAYLOAD_REL=$found
 }
 hdr_rollback() {
  hdr_error "$1"

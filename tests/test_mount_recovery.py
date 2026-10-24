@@ -23,7 +23,7 @@ def setup(name, scenario='stable', target_path='/system_ext/lib64/libsurfaceflin
  }
  for name,body in commands.items():
   q=mock/name;q.write_text('#!/bin/sh\n'+body+'\n');q.chmod(0o755)
- env=dict(os.environ,PATH=str(mock)+':/usr/bin:/bin',HDR_TARGET=str(target),TEST_DIR=str(d),TEST_CASE=scenario)
+ env=dict(os.environ,PATH=str(mock)+':/usr/bin:/bin',HDR_TARGET=str(target),HDR_ADB_ROOT=str(d/'adb'),TEST_DIR=str(d),TEST_CASE=scenario)
  return d,env
 def run(d,env,script):
  r=subprocess.run(['/bin/sh',str(d/script)],env=env,capture_output=True,text=True)
@@ -72,4 +72,68 @@ check('target-payload mismatch blocks overlay',wrong_payload)
 def injection():
  d,e=setup('injection');(d/'target.path').write_text('/system/lib64/$(touch bad)/libsurfaceflinger.so\n');run(d,e,'post-fs-data.sh');assert (d/'disable').exists();assert not (d/'props').exists()
 check('target metadata is data and never sourced as a shell program',injection)
+for partition in ['system_ext','vendor','product']:
+ for link in [False,True]:
+  def moved_partition(partition=partition,link=link):
+   d,e=setup('moved-'+partition+str(link),target_path='/'+partition+'/lib64/libsurfaceflinger.so')
+   canonical=d/'system'/partition;shutil.move(str(canonical),d/partition)
+   if link:canonical.symlink_to('../'+partition)
+   run(d,e,'post-fs-data.sh');assert (d/'boot-pending').exists() and not (d/'disable').exists()
+   (d/'target.so').write_bytes(b'patched');run(d,e,'service.sh');assert (d/'boot-check.txt').read_text().startswith('PASS')
+  check('relocated partition '+partition+' compatibility_symlink='+str(link),moved_partition)
+def duplicate_payload():
+ d,e=setup('duplicate-payload');shutil.copytree(d/'system/system_ext',d/'system_ext');(d/'system_ext/lib64/libsurfaceflinger.so').write_bytes(b'other')
+ run(d,e,'post-fs-data.sh');assert (d/'disable').exists();assert not (d/'props').exists()
+check('conflicting canonical and relocated payloads are rejected',duplicate_payload)
+def install_backend(name,framework,meta=None,legacy_mountify=False,mode=None,listed=False,skip=False):
+ d,e=setup('backend-'+name);e.update(MODPATH=str(d),BOOTMODE='true',KSU='false',APATCH='false',MAGISK_VER_CODE='')
+ if framework=='MAGISK':e['MAGISK_VER_CODE']='30000'
+ else:e[framework]='true'
+ adb=d/'adb';adb.mkdir()
+ if meta or legacy_mountify:
+  module=adb/'modules'/(meta or 'mountify');module.mkdir(parents=True)
+  (module/'module.prop').write_text('id='+module.name+'\nmetamodule=true\n')
+  (module/('post-fs-data.sh' if legacy_mountify else 'metamount.sh')).write_text('# mock provider\n')
+  if meta:(adb/'metamodule').symlink_to(module)
+ if mode is not None:
+  config=adb/'mountify';config.mkdir();(config/'config.sh').write_text('mountify_mounts="'+str(mode)+'" # test\n')
+  (config/'modules.txt').write_text('xiaomi17u_hdr_clamp_test\n' if listed else 'other_module\n')
+ if skip:(d/'skip_mount').touch()
+ script='abort() { echo "$*"; exit 33; }; set_perm_recursive() { :; }; set_perm() { :; }; ui_print() { :; }; . "$MODPATH/customize.sh"'
+ result=subprocess.run(['/bin/sh','-c',script],env=e,capture_output=True,text=True)
+ expected_failure=mode==0 or (mode==1 and not listed)
+ assert result.returncode==(33 if expected_failure else 0),(name,result.stdout,result.stderr)
+ if expected_failure:assert 'MOUNT_BACKEND_' in result.stdout
+ else:
+  text=(d/'mount-backend.txt').read_text();assert 'ROOT_FRAMEWORK='+('KERNELSU' if framework=='KSU' else framework) in text
+  assert 'METAMODULE='+(meta or ('mountify' if legacy_mountify else ''))+'\n' in text
+ if skip:assert (d/'skip_mount').exists()
+for name,framework,meta in [('magisk-magicmount','MAGISK',None),('ksu-built-in','KSU',None),('apatch-built-in','APATCH',None),('ksu-overlayfs','KSU','meta-overlayfs'),('ksu-magicmount','KSU','meta-magicmount'),('apatch-meta','APATCH','meta-overlayfs'),('sukisu-mountify','KSU','mountify')]:
+ check('installer accepts '+name,lambda n=name,f=framework,m=meta:install_backend(n,f,m))
+check('Magisk legacy Mountify retains provider-owned skip_mount',lambda:install_backend('magisk-mountify','MAGISK',legacy_mountify=True,skip=True))
+check('Mountify manual selection accepted when listed',lambda:install_backend('manual-selected','KSU','mountify',mode=1,listed=True))
+check('Mountify manual exclusion reported without editing configuration',lambda:install_backend('manual-excluded','KSU','mountify',mode=1))
+check('Mountify disabled mode reported',lambda:install_backend('mountify-off','KSU','mountify',mode=0))
+def not_mounted():
+ d,e=setup('not-mounted');run(d,e,'post-fs-data.sh');run(d,e,'service.sh')
+ assert (d/'disable').exists() and 'not mounted' in (d/'rollback.txt').read_text()
+ assert not (d/'boot-check.txt').read_text().startswith('PASS')
+check('successful preparation never reports activation without a visible mount',not_mounted)
+def bind_failure():
+ d,e=setup('bind-failure');(d/'target.so').write_bytes(b'patched');(d/'mock/mount').write_text('#!/bin/sh\nexit 1\n')
+ e['MODDIR']=str(d)
+ subprocess.run(['/bin/sh','-c','. "$MODDIR/common.sh"; hdr_rollback test'],env=e,check=True)
+ assert (d/'disable').exists() and (d/'skip_mountify').exists()
+ assert 'Live restore unavailable' in (d/'rollback.txt').read_text()
+check('failed live bind restore retains next-boot disable markers',bind_failure)
+for framework,relative in [('KSU','ksu/bin/ksud'),('APATCH','apd'),('APATCH','ap/bin/apd'),('MAGISK','magisk/magisk')]:
+ def property_fallback(framework=framework,relative=relative):
+  d,e=setup('properties-'+relative.replace('/','_'));e.update(MODDIR=str(d),KSU='false',APATCH='false',MAGISK_VER_CODE='')
+  if framework=='MAGISK':e['MAGISK_VER_CODE']='30000'
+  else:e[framework]='true'
+  (d/'mock/resetprop').unlink();binary=d/'adb'/relative;binary.parent.mkdir(parents=True)
+  binary.write_text('#!/bin/sh\nprintf "%s\\n" "$*" > "$TEST_DIR/property-call"\n');binary.chmod(0o755)
+  subprocess.run(['/bin/sh','-c','. "$MODDIR/common.sh"; hdr_resetprop -n debug.sf.true_hdr_screenshots true'],env=e,check=True)
+  assert (d/'property-call').read_text().strip()=='resetprop -n debug.sf.true_hdr_screenshots true'
+ check('property helper fallback '+framework+' '+relative,property_fallback)
 print('ALL PASS',len(passed));print('FIXTURE_DIR',base)

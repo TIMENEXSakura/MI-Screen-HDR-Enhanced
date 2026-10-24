@@ -132,7 +132,7 @@ class SettingsActivity : ComponentActivity() {
                 TextButton(onClick = { page = 1 }) { Text("打开 HDR 测试"); Icon(Icons.Default.ArrowForward, null, Modifier.padding(start = 8.dp).size(18.dp)) }
             }
         }
-        Text("1.3.1  ·  小米原生截屏增强", style = MaterialTheme.typography.labelMedium,
+        Text("1.3.2  ·  小米原生截屏增强", style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
     }
     @Composable private fun HomeTile(title: String, subtitle: String, icon: ImageVector, modifier: Modifier, action: () -> Unit) {
@@ -181,7 +181,7 @@ class SettingsActivity : ComponentActivity() {
                         Text(if (busy) "正在处理" else "生成挂载模块")
                     }
                     OutlinedButton(onClick = { generateMount(true) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("生成并安装挂载模块") }
-                    Text("按本机库生成 KSU / Magisk ZIP，保存到 Download/MI-Screen-HDR-Enhanced。包含原库备份和异常回退。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("按本机库生成 Magisk / KernelSU / APatch 模块，沿用已有挂载方式，保存到 Download/MI-Screen-HDR-Enhanced。包含原库备份和异常回退。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     FilledTonalButton(onClick = { try { startActivity(Intent().setClassName("org.lsposed.manager", "org.lsposed.manager.ui.activity.MainActivity")) }
                         catch (_: Exception) { status = "请从你的 LSPosed 管理器启用本模块，仅勾选“小米截屏”。" } }, modifier = Modifier.fillMaxWidth()) { Text("打开 LSPosed") }
                     Text("作用域：小米截屏 / com.miui.screenshot。通过 SO 注入增强捕获，系统截屏 APK 保持原样。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -207,14 +207,20 @@ class SettingsActivity : ComponentActivity() {
     private fun enableRoot(install: Boolean): String = try {
         fun quote(s: String) = "'" + s.replace("'", "'\\''") + "'"
         val apk = applicationInfo.sourceDir
-        val cmd = "export PATH=/system/bin:/system/xbin:/data/adb/ksu/bin:/data/adb/magisk; CLASSPATH=${quote(apk)} /system/bin/app_process /system/bin dev.local.miuihdr.RootSetup ${quote(apk)} ${if (install) "install" else "generate"}"
-        val p = ProcessBuilder("su", "-c", cmd).redirectErrorStream(true).start()
-        if (!p.waitFor(90, TimeUnit.SECONDS)) { p.destroy(); "Root 操作超时，请检查管理器授权后重试。" }
-        else { val detail = p.inputStream.bufferedReader().readText().take(16000)
+        val cmd = "export PATH=/system/bin:/system/xbin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk; CLASSPATH=${quote(apk)} /system/bin/app_process /system/bin dev.local.miuihdr.RootSetup ${quote(apk)} ${if (install) "install" else "generate"}"
+        val log = java.io.File.createTempFile("mount-", ".log", cacheDir)
+        // Installers can print more than a pipe buffer; never wait before draining a pipe.
+        val p = ProcessBuilder("su", "-c", cmd).redirectErrorStream(true).redirectOutput(log).start()
+        if (!p.waitFor(180, TimeUnit.SECONDS)) { "尚未确认操作完成，请先查看 Root 管理器状态，避免重复安装。" }
+        else { val detail = java.io.RandomAccessFile(log, "r").use { file ->
+                val bytes = ByteArray(minOf(file.length(), 64000L).toInt())
+                file.seek(file.length() - bytes.size); file.readFully(bytes); String(bytes, Charsets.UTF_8)
+            }
+            log.delete()
             getSharedPreferences("local_status", MODE_PRIVATE).edit().putString("detail", detail).apply()
             if (p.exitValue() == 0) { if (install) "挂载模块已安装，原库已备份。下次启动验证，异常时回退。" else "挂载模块已生成：\n" + detail.lineSequence().firstOrNull { it.startsWith("GENERATED_ZIP=") }?.removePrefix("GENERATED_ZIP=") } else "启用未完成：${detail.takeLast(900)}"
         }
-    } catch (_: java.io.IOException) { "请先在 SukiSU / Magisk 中授予“${getString(R.string.app_name)}”Root 权限，然后重试。" }
+    } catch (_: java.io.IOException) { "请先在 Magisk / KernelSU / APatch 中授予“${getString(R.string.app_name)}”Root 权限，然后重试。" }
       catch (e: Exception) { "启用未完成：${e.message}" }
 
     @Composable private fun TestPage(full: Boolean, setFull: (Boolean) -> Unit) {

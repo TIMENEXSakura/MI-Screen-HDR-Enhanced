@@ -79,6 +79,6 @@ public final class MiuiHook implements IXposedHookLoadPackage {
     });
    }
   }catch(Throwable t){log("Save observer unavailable: "+t);}
-  log("Installed native MIUI HDR hooks v1.3.1 process="+p.processName);
+  log("Installed native MIUI HDR hooks v1.3.2 process="+p.processName);
  }
 }

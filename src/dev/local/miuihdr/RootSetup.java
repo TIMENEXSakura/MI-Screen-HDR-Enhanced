@@ -6,7 +6,7 @@ import java.util.zip.*;
 
 /** The APK generates a device-local mount ZIP; it never ships a system SO. */
 public final class RootSetup {
- private static final String VERSION="1.3.1";
+ private static final String VERSION="1.3.2";
  private static String run(String... args)throws Exception{
   Process p=new ProcessBuilder(args).redirectErrorStream(true).start();ByteArrayOutputStream out=new ByteArrayOutputStream();
   try(InputStream in=p.getInputStream()){byte[] b=new byte[8192];int n;while((n=in.read(b))>0)out.write(b,0,n);}
@@ -14,6 +14,16 @@ public final class RootSetup {
  }
  private static void cleanup(Path dir)throws IOException{
   try(java.util.stream.Stream<Path> walk=Files.walk(dir)){for(Path p:(Iterable<Path>)walk.sorted(Comparator.reverseOrder())::iterator)Files.deleteIfExists(p);}
+ }
+ private static String executable(RootInstaller.Provider provider)throws Exception{
+  String name=RootInstaller.name(provider);
+  try{String path=run("/system/bin/sh","-c","command -v "+name);if(new File(path).canExecute())return path;}catch(IOException ignored){}
+  for(String path:RootInstaller.paths(provider))if(new File(path).canExecute())return path;
+  throw new IOException("ROOT_INSTALLER_MISSING: 未找到 "+provider+" 的安装器；ZIP 已保留，可在管理器中手动安装");
+ }
+ private static void installReport(File zip,String message){
+  try{Files.writeString(zip.toPath().getParent().resolve("mount-diagnostics-"+VERSION+".txt"),"\n"+message+"\n",StandardOpenOption.CREATE,StandardOpenOption.APPEND);}
+  catch(IOException ignored){}
  }
  private static File generate(String apkPath)throws Exception{
   String user=run("/system/bin/am","get-current-user").trim();if(!user.matches("[0-9]+"))throw new IOException("无法确认下载目录所属用户");
@@ -31,6 +41,8 @@ public final class RootSetup {
     }
    }
    File patcher=dir.resolve("bin/hdrpatch").toFile();if(!patcher.setExecutable(true,true))throw new IOException("补丁生成器不可执行");
+   try{locator.diagnostics.add(run("/system/bin/sh",dir.resolve("backend.sh").toString(),"describe"));}
+   catch(IOException e){locator.diagnostics.add("ROOT_ENV_UNAVAILABLE: "+e.getMessage());}
    List<String> mapped=new ArrayList<>();
    try{
     for(String pid:run("/system/bin/pidof","surfaceflinger").split("\\s+"))if(pid.matches("[0-9]+")){
@@ -78,10 +90,13 @@ public final class RootSetup {
   String action=args.length==2?args[1]:"generate";
   if(!action.equals("generate")&&!action.equals("install"))throw new IOException("未知操作");
   File zip=generate(args[0]);if(action.equals("generate")){System.out.println("PASS: 挂载模块已生成，尚未安装。");return;}
-  File ksud=new File("/data/adb/ksu/bin/ksud");
-  if(ksud.canExecute())System.out.println(run(ksud.getPath(),"module","install",zip.getPath()));
-  else{String magisk=run("/system/bin/sh","-c","command -v magisk");if(magisk.isEmpty())throw new IOException("未找到 KSU 或 Magisk");System.out.println(run(magisk,"--install-module",zip.getPath()));}
-  System.out.println(run("/system/bin/sh","-c","resetprop -n debug.sf.local_tonemap_screenshots true && resetprop -n debug.sf.true_hdr_screenshots true"));
+  RootInstaller.Provider provider=RootInstaller.identify(run("/system/bin/sh","-c","su -v"));
+  String installer=executable(provider);System.out.println("ROOT_INSTALLER="+provider+" "+installer);
+  installReport(zip,"ROOT_INSTALLER="+provider+" "+installer);
+  try{String result=run(RootInstaller.command(provider,installer,zip.getPath()));System.out.println(result);installReport(zip,"INSTALL_RESULT=success\n"+result);}
+  catch(IOException e){installReport(zip,"INSTALL_RESULT=failed\n"+e.getMessage());throw new IOException("ROOT_INSTALL_FAILED ("+provider+"): "+e.getMessage()+"\nZIP 已保留："+zip,e);}
+  try{System.out.println(run("/system/bin/sh","-c","PATH=/system/bin:/system/xbin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk; resetprop -n debug.sf.local_tonemap_screenshots true && resetprop -n debug.sf.true_hdr_screenshots true"));}
+  catch(Exception e){System.out.println("CURRENT_BOOT: 属性等待下次启动设置："+e.getMessage());}
   try{String pid=run("/system/bin/pidof","surfaceflinger");if(!pid.matches("[0-9]+"))throw new IOException("无法确认显示服务");NativeFlags.run(new String[]{pid,"1"});}
   catch(Exception e){System.out.println("CURRENT_BOOT: 等待下次启动更新缓存开关："+e.getMessage());}
   for(String root:new String[]{"/data/adb/modules","/data/adb/modules_update"}){

@@ -1,4 +1,4 @@
-小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.1 — 动态生成的挂载模块
+小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.2 — 动态生成的挂载模块
 
 此 ZIP 由 Xposed APK 的“生成挂载模块”在本机生成。
 APK 内只有生成器及脚本模板，不内置或分发某台设备的完整系统 SO。
@@ -12,7 +12,7 @@ APK 内只有生成器及脚本模板，不内置或分发某台设备的完整�
 当前可生成标准 system、system_ext、product、vendor 覆盖；APEX/ODM 等不支持的挂载位置明确报错。
 指令补丁仍要求匹配的 ELF64 AArch64 实现；发现32位库不代表能套用64位补丁。
 模块 ID 沿用 xiaomi17u_hdr_clamp_test，升级现有底层模块，避免两份库同时覆盖。
-KSU / SukiSU 使用已有 Mountify；Magisk 使用自身挂载机制。生成 ZIP 不要求已安装 Mountify。
+Magisk / KernelSU / APatch 使用各自已有的挂载提供者；不限定 Mountify，也不替换全局挂载配置。
 原 hdr_screenshot_tonemap 属性模块在 APK 成功安装整合包后才被停用。
 
 回退：损坏或上次启动未通过会在下次开机停止挂载。
@@ -30,3 +30,9 @@ SHA-256 b33cd087d7cf904533803d7a86145197c67bb351a7a73c68a4412497ab630aaf。
 https://kernelsu.org/guide/module.html
 https://github.com/backslashxx/mountify
 https://topjohnwu.github.io/Magisk/guides.html
+https://apatch.dev/apm-guide.html
+
+1.3.2 挂载兼容
+根据当前 Root 提供者选择安装入口。沿用已有 Magic Mount、OverlayFS、Mountify 或兼容元模块，不再强制依赖 Mountify。
+兼容安装器移动分区目录，保留挂载提供者的跳过标记。Mountify 手动选择未包含本模块时会报告原因，不修改全局配置。
+安装后须经过下次启动验证才确认底层覆盖生效；本机仅验证 SukiSU + Mountify 的生成流程，其他组合属于模拟验证。

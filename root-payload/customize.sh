@@ -1,13 +1,12 @@
 # No device/model/Android/firmware allowlist.
 [ "$BOOTMODE" = true ] || abort "Install from the running Android system."
 [ "${KSU_LATE_LOAD:-0}" != 1 ] || abort "Boot-time mounting unavailable in late-load mode."
+[ "${APATCH_LATE_LOAD:-0}" != 1 ] || abort "Boot-time mounting unavailable in late-load mode."
 MODDIR=$MODPATH
 . "$MODPATH/common.sh"
 [ "$HDR_CONFIG_OK" = 1 ] || abort "Missing or invalid library target; regenerate in the Xposed APK."
-if [ "${KSU:-false}" = true ]; then
- HDR_META=/data/adb/modules/mountify
- [ -f "$HDR_META/metamount.sh" ] && [ ! -e "$HDR_META/disable" ] && [ ! -e "$HDR_META/remove" ] || abort "Mountify unavailable; existing setup retained."
-fi
+HDR_BACKEND_CHECK=$(hdr_backend_check) || abort "$HDR_BACKEND_CHECK"
+hdr_backend_report > "$MODPATH/mount-backend.txt"
 [ -f "$HDR_TARGET" ] || abort "SurfaceFlinger library unavailable; existing setup retained."
 hdr_files_ok || abort "Generated module is incomplete or damaged; regenerate in the Xposed APK."
 HDR_VISIBLE=$(hdr_sha "$HDR_TARGET")
@@ -19,10 +18,12 @@ for script in post-fs-data.sh service.sh boot-completed.sh action.sh; do set_per
 set_perm "$MODPATH/bin/hdrpatch" 0 0 0755
 set_perm "$MODPATH/$HDR_PAYLOAD_REL" 0 0 0644 u:object_r:system_file:s0
 set_perm "$MODPATH/backup/original.so" 0 0 0644 u:object_r:system_file:s0
-for marker in skip_mount skip_mountify boot-pending rollback.txt; do
+# Skip markers may be owned by a provider; the fresh generated ZIP has none.
+for marker in boot-pending rollback.txt; do
  [ ! -f "$MODPATH/$marker" ] || unlink "$MODPATH/$marker"
 done
 case "$(getprop persist.sys.locale)" in zh*) sed -i 's/^name=.*/name=小米截屏HDR增强/' "$MODPATH/module.prop";; esac
 ui_print "- Device library patched; original library backed up."
 ui_print "- Target: $HDR_TARGET"
+ui_print "- Root: $HDR_FRAMEWORK; mount provider: $HDR_BACKEND $HDR_META_ID"
 ui_print "- Pending boot validation; no SurfaceFlinger restart performed."

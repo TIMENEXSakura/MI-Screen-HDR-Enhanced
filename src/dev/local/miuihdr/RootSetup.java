@@ -6,7 +6,7 @@ import java.util.zip.*;
 
 /** The APK generates a device-local mount ZIP; it never ships a system SO. */
 public final class RootSetup {
- private static final String VERSION="1.3.2";
+ private static final String VERSION="1.4.5";
  private static String run(String... args)throws Exception{
   Process p=new ProcessBuilder(args).redirectErrorStream(true).start();ByteArrayOutputStream out=new ByteArrayOutputStream();
   try(InputStream in=p.getInputStream()){byte[] b=new byte[8192];int n;while((n=in.read(b))>0)out.write(b,0,n);}

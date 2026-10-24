@@ -15,6 +15,13 @@ public final class MiuiHook implements IXposedHookLoadPackage {
   if(!"com.miui.screenshot".equals(p.packageName))return;
   final ClassLoader cl=p.classLoader;
   NativeBridge.start();
+  try{XposedBridge.hookMethod(android.view.View.class.getDeclaredMethod("setLayerType",int.class,android.graphics.Paint.class),new XC_MethodHook(){
+   protected void beforeHookedMethod(MethodHookParam param){if(PreviewHdr.directDraw((android.view.View)param.thisObject))param.args[0]=android.view.View.LAYER_TYPE_NONE;}
+  });}catch(Throwable t){log("HDR preview direct drawing hook unavailable: "+t);}
+  try{XposedBridge.hookMethod(Class.forName("android.view.WindowManagerImpl").getDeclaredMethod("updateViewLayout",android.view.View.class,android.view.ViewGroup.LayoutParams.class),new XC_MethodHook(){
+   protected void beforeHookedMethod(MethodHookParam param){param.args[1]=PreviewHdr.keepHdr((android.view.View)param.args[0],(android.view.ViewGroup.LayoutParams)param.args[1]);}
+  });}catch(Throwable t){log("HDR preview window update hook unavailable: "+t);}
+  try{PrecisionHooks.install();}catch(Throwable t){log("Pixel HDR encoder hook unavailable: "+t);}
   try{NativeProbeEntry.install();}catch(Throwable t){log("Root probe unavailable: "+t);}
   try{ShellMode.install(cl);}catch(Throwable t){log("HDR editor format hooks unavailable: "+t);}
   try{
@@ -51,21 +58,23 @@ public final class MiuiHook implements IXposedHookLoadPackage {
   try{
    Class<?> worker=cl.loadClass("com.miui.screenshot.hyper.TakeScreenshotExecutorImpl$processImageCapture$bitmap$1");
    XposedBridge.hookMethod(worker.getDeclaredMethod("invokeSuspend",Object.class),new XC_MethodHook(){protected void afterHookedMethod(MethodHookParam param){
-    if(!param.hasThrowable()&&param.getResult() instanceof Bitmap){Bitmap b=(Bitmap)param.getResult();log("Native capture "+b.getWidth()+"x"+b.getHeight()+" "+HdrSignal.inspect(b));}
+    if(!param.hasThrowable()&&param.getResult() instanceof Bitmap){Bitmap b=(Bitmap)param.getResult();try{Bitmap precise=PrecisionHooks.capture(b);if(precise!=b){param.setResult(precise);b=precise;}}catch(Throwable t){log("Pixel capture skipped; original retained: "+t);}log("Native capture "+b.getWidth()+"x"+b.getHeight()+" "+HdrSignal.inspect(b));}
    }});
   }catch(Throwable t){log("Capture hook unavailable: "+t);}
   try{
    Class<?> controller=cl.loadClass("com.miui.screenshot.B");Method receive=null;
    for(Method m:controller.getDeclaredMethods())if(m.getName().equals("g")&&m.getParameterTypes().length==3&&m.getParameterTypes()[0].getName().equals("com.miui.screenshot.core.domain.ScreenshotData"))receive=m;
    if(receive==null)throw new NoSuchMethodException("Native screenshot controller");
-   Method preview=controller.getDeclaredMethod("j2",Runnable.class);
+   // i2 binds the original gainmap bitmap before the full-screen entry frame;
+   // j2 only begins the later transition into the corner thumbnail.
+   Method preview=controller.getDeclaredMethod("i2",Runnable.class);
    XposedBridge.hookMethod(receive,new XC_MethodHook(){protected void beforeHookedMethod(MethodHookParam param){try{
     Bitmap b=(Bitmap)param.args[0].getClass().getMethod("getBitmap").invoke(param.args[0]);HdrSignal.Info info=HdrSignal.inspect(b);
-    XposedHelpers.setAdditionalInstanceField(param.thisObject,STATE,info);ImageView v=imageView(param.thisObject);if(v!=null)HdrFrame.clear(v);log("Native preview "+info);
+    XposedHelpers.setAdditionalInstanceField(param.thisObject,STATE,info);ImageView v=imageView(param.thisObject);if(v!=null){HdrFrame.clear(v);PreviewHdr.clear(v);}log("Native preview "+info);
    }catch(Throwable t){XposedHelpers.setAdditionalInstanceField(param.thisObject,STATE,null);log("Preview detection failed: "+t);}}});
    XposedBridge.hookMethod(preview,new XC_MethodHook(){protected void beforeHookedMethod(MethodHookParam param){try{
     HdrSignal.Info info=(HdrSignal.Info)XposedHelpers.getAdditionalInstanceField(param.thisObject,STATE);ImageView v=imageView(param.thisObject);
-    if(v==null)return;HookConfig config=HookConfig.read(v.getContext());
+    if(v==null)return;PreviewHdr.bind(v,info);HookConfig config=HookConfig.read(v.getContext());
     if(v!=null&&info!=null&&info.hdr&&(config.glow||config.badge))HdrFrame.attach(v,config,info.ratio);
     log("Preview settings glow="+config.glow+" hdrGlow="+config.hdrGlow+" badge="+config.badge);
    }catch(Throwable t){log("Preview feedback failed: "+t);}}});
@@ -79,6 +88,6 @@ public final class MiuiHook implements IXposedHookLoadPackage {
     });
    }
   }catch(Throwable t){log("Save observer unavailable: "+t);}
-  log("Installed native MIUI HDR hooks v1.3.2 process="+p.processName);
+  log("Installed native MIUI HDR hooks v1.4.5 process="+p.processName);
  }
 }

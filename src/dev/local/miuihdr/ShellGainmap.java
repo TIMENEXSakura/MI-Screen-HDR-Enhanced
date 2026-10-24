@@ -16,7 +16,7 @@ public final class ShellGainmap {
   Gainmap original=source.getGainmap();
   if(Build.VERSION.SDK_INT>=36&&original.getGainmapDirection()!=Gainmap.GAINMAP_DIRECTION_SDR_TO_HDR)throw new IllegalArgumentException("HDR base direction unsupported by shell repair");
   ColorSpace space=source.getColorSpace(); if(!(space instanceof ColorSpace.Rgb))throw new IllegalArgumentException("Non-RGB source");
-  ColorSpace alternative=Build.VERSION.SDK_INT>=35?original.getAlternativeImagePrimaries():null;
+  ColorSpace alternative=Build.VERSION.SDK_INT>=36?original.getAlternativeImagePrimaries():null;
   if(alternative!=null&&!alternative.equals(space))throw new IllegalArgumentException("Different gainmap primaries need color conversion");
   Object info=call(entry,"getShellInfo",new Class<?>[0]);Bitmap shell=(Bitmap)field(entry,"mShellBitmap");
   if(info==null||shell==null)return false;
@@ -52,7 +52,7 @@ public final class ShellGainmap {
   java.util.Collection<?> nodes=(java.util.Collection<?>)field(entry,"mNodeList");
   if(nodes.isEmpty()){result.setGainmap(source.getGainmap());android.util.Log.i("MiuiHdrHook","Restored HDR after empty editor draw");return true;}
   if(!NativeBridge.loaded)throw new IllegalStateException("Native compositor unavailable");
-  Gainmap gain=source.getGainmap();ColorSpace alternative=Build.VERSION.SDK_INT>=35?gain.getAlternativeImagePrimaries():null;
+  Gainmap gain=source.getGainmap();ColorSpace alternative=Build.VERSION.SDK_INT>=36?gain.getAlternativeImagePrimaries():null;
   if(alternative!=null&&!alternative.equals(source.getColorSpace()))throw new IllegalArgumentException("Different editor gainmap primaries");
   if(Build.VERSION.SDK_INT>=36&&gain.getGainmapDirection()!=Gainmap.GAINMAP_DIRECTION_SDR_TO_HDR)throw new IllegalArgumentException("HDR base direction");
   ArrayList<Bitmap> owned=new ArrayList<>();
@@ -90,7 +90,7 @@ public final class ShellGainmap {
  }
  private static void attach(Bitmap source,Bitmap result,Bitmap base,Bitmap map,Bitmap frame,ArrayList<Bitmap> owned){
    int w=result.getWidth(),h=result.getHeight();Gainmap original=source.getGainmap();ColorSpace space=source.getColorSpace();
-   ColorSpace alternative=Build.VERSION.SDK_INT>=35?original.getAlternativeImagePrimaries():null;
+   ColorSpace alternative=Build.VERSION.SDK_INT>=36?original.getAlternativeImagePrimaries():null;
    Bitmap out=Bitmap.createBitmap(w,h,Bitmap.Config.ARGB_8888);owned.add(out);
    float[] params=new float[21];float[][] values={original.getRatioMin(),original.getRatioMax(),original.getGamma(),original.getEpsilonSdr(),original.getEpsilonHdr()};
    for(int i=0;i<5;i++)System.arraycopy(values[i],0,params,i*3,3);
@@ -100,7 +100,7 @@ public final class ShellGainmap {
    Gainmap restored=new Gainmap(out);restored.setRatioMin(params[15],params[16],params[17]);restored.setRatioMax(params[18],params[19],params[20]);
    restored.setGamma(1,1,1);restored.setEpsilonSdr(1f/64,1f/64,1f/64);restored.setEpsilonHdr(1f/64,1f/64,1f/64);
    restored.setMinDisplayRatioForHdrTransition(original.getMinDisplayRatioForHdrTransition());restored.setDisplayRatioForFullHdr(original.getDisplayRatioForFullHdr());
-   if(Build.VERSION.SDK_INT>=35)restored.setAlternativeImagePrimaries(alternative);
+   if(Build.VERSION.SDK_INT>=36)restored.setAlternativeImagePrimaries(alternative);
    result.setGainmap(restored);owned.remove(out);
  }
 

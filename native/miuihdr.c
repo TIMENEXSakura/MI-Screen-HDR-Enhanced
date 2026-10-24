@@ -98,3 +98,6 @@ JNIEXPORT jboolean JNICALL Java_dev_local_miuihdr_NativeBridge_composeShellGainm
  (*env)->SetFloatArrayRegion(env,params,0,21,m);ok=JNI_TRUE;
  done:free(ratios);for(int i=locked-1;i>=0;i--)AndroidBitmap_unlockPixels(env,objects[i]);return ok;
 }
+
+#include "gainmap_precision.c"
+#include "jpeg444.c"

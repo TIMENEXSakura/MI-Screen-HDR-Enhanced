@@ -1,0 +1,6 @@
+libjpeg-turbo 3.1.2, unmodified upstream source.
+https://github.com/libjpeg-turbo/libjpeg-turbo/tree/3.1.2
+Archive: https://codeload.github.com/libjpeg-turbo/libjpeg-turbo/tar.gz/refs/tags/3.1.2
+SHA-256: 560f6338b547544c4f9721b18d8b87685d433ec78b3c644c70d77adad22c55e6
+Statically linked libjpeg API with SIMD. TurboJPEG API not included.
+This software is based in part on the work of the Independent JPEG Group.

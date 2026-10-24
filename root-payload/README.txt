@@ -1,4 +1,4 @@
-小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.2 — 动态生成的挂载模块
+小米截屏HDR增强 / MI Screen HDR Enhanced 1.4.5 — 动态生成的挂载模块
 
 此 ZIP 由 Xposed APK 的“生成挂载模块”在本机生成。
 APK 内只有生成器及脚本模板，不内置或分发某台设备的完整系统 SO。

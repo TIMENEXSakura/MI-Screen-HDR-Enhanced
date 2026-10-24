@@ -132,7 +132,7 @@ class SettingsActivity : ComponentActivity() {
                 TextButton(onClick = { page = 1 }) { Text("打开 HDR 测试"); Icon(Icons.Default.ArrowForward, null, Modifier.padding(start = 8.dp).size(18.dp)) }
             }
         }
-        Text("1.3.2  ·  小米原生截屏增强", style = MaterialTheme.typography.labelMedium,
+        Text("1.4.5  ·  小米原生截屏增强", style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
     }
     @Composable private fun HomeTile(title: String, subtitle: String, icon: ImageVector, modifier: Modifier, action: () -> Unit) {
@@ -158,12 +158,20 @@ class SettingsActivity : ComponentActivity() {
                 Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                     EffectSwitch("辉光边框", "彩色光带沿轮廓流动，全程跟随截图动画。", "glow")
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    EffectSwitch("辉光 HDR 亮度", "关闭后保留普通亮度泛光，截图仍保存 HDR。", "hdr_glow")
+                    EffectSwitch("辉光 HDR 亮度", "关闭后保留普通亮度泛光，预览图和保存图片仍为 HDR。", "hdr_glow")
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     EffectSwitch("HDR 标记", "在有效 HDR 截图上显示标记。", "badge")
                 }
             }
-            Text("下次截图立即生效。预览光效不会写入保存的图片。", style = MaterialTheme.typography.bodySmall,
+            Text("HDR 预览独立启用，关闭辉光不影响图片的 HDR 显示。预览光效不会写入保存的图片。", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
+            SectionTitle("HDR 图像质量")
+            Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
+                Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                    EffectSwitch("像素增益优化", "逐像素重算增益；JPG 使用全尺寸增益图、质量 100 和 4:4:4 编码。实验功能，默认关闭。", "pixel_precision", false)
+                }
+            }
+            Text("下次截图生效。SDR 观感会变化，保存耗时和 JPG 体积可能增加。JPG 仍有压缩误差；不支持的输入自动沿用原流程。", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
             SectionTitle("HDR 捕获")
             Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
@@ -190,14 +198,14 @@ class SettingsActivity : ComponentActivity() {
             TextButton(onClick = { about = true }) { Icon(Icons.Default.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("UI 框架与第三方许可") }
         }
         if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("框架与许可") },
-            text = { Text("UI 框架\nGoogle / AndroidX Jetpack Compose Material 3\n设计规范：Google Material 3 Expressive\n组件库许可：Apache-2.0\ndeveloper.android.com/jetpack/androidx/releases/compose-material3\n\n第三方代码\n部分主题配置与浮动导航代码改编自 SukiSU-Ultra，遵循 GPL-3.0。这是所复用代码的出处，不是 UI 框架的来源。详细路径、版本和许可见随包源码。\n\nHDR 素材\nMishaal Rahman · CC BY 4.0\ngithub.com/MishaalRahmanGH/Ultra_HDR_Samples") },
+            text = { Text("UI 框架\nGoogle / AndroidX Jetpack Compose Material 3\n设计规范：Google Material 3 Expressive\n组件库许可：Apache-2.0\ndeveloper.android.com/jetpack/androidx/releases/compose-material3\n\n第三方代码\n部分主题配置与浮动导航代码改编自 SukiSU-Ultra，遵循 GPL-3.0。这是所复用代码的出处，不是 UI 框架的来源。详细路径、版本和许可见随包源码。\n\nJPEG 编码\nlibjpeg-turbo 3.1.2\nThis software is based in part on the work of the Independent JPEG Group.\n许可随 APK 打包在 assets/licenses 中。\n\nHDR 素材\nMishaal Rahman · CC BY 4.0\ngithub.com/MishaalRahmanGH/Ultra_HDR_Samples") },
             confirmButton = { TextButton(onClick = { about = false }) { Text("知道了") } })
     }
     @Composable private fun SectionTitle(title: String) { Text(title, style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 12.dp)) }
-    @Composable private fun EffectSwitch(title: String, desc: String, key: String) {
+    @Composable private fun EffectSwitch(title: String, desc: String, key: String, defaultValue: Boolean = true) {
         val prefs = getSharedPreferences("ui_options", MODE_PRIVATE)
-        var checked by remember { mutableStateOf(prefs.getBoolean(key, true)) }
+        var checked by remember { mutableStateOf(prefs.getBoolean(key, defaultValue)) }
         Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 12.dp)) { Text(title, style = MaterialTheme.typography.titleMedium); Spacer(Modifier.height(4.dp)); Text(desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             Switch(checked = checked, onCheckedChange = { if (prefs.edit().putBoolean(key, it).commit()) checked = it },

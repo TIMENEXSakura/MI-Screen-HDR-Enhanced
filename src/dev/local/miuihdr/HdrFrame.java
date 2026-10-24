@@ -20,17 +20,12 @@ final class HdrFrame extends Drawable implements View.OnAttachStateChangeListene
  private final RectF wheelBounds=new RectF();
  private final Paint maskPaint=new Paint(Paint.ANTI_ALIAS_FLAG);
  private final RuntimeShader mask=new RuntimeShader("uniform float4 edge; uniform float radius; uniform float density; uniform float opacity; half4 main(float2 p) { float2 center=(edge.xy+edge.zw)*0.5; float2 extent=(edge.zw-edge.xy)*0.5; float r=min(radius,min(extent.x,extent.y)); float2 q=abs(p-center)-(extent-float2(r)); float d=length(max(q,float2(0)))+min(max(q.x,q.y),0.0)-r; float u=max(d,0.0)/density; float core=1.0-smoothstep(0.3,1.9,u); float halo=0.40*exp(-u*u/98.0)+0.48*exp(-u*u/12.5); float a=clamp(max(core,halo),0.0,1.0)*smoothstep(-0.7,0.7,d+0.35*density)*opacity; return half4(a); }");
- private final long created=SystemClock.uptimeMillis();private int oldMode;private float oldHeadroom;private boolean changedWindow;
  private HdrFrame(ImageView v,HookConfig c,float r){host=new WeakReference<ImageView>(v);root=new WeakReference<View>(v.getRootView());density=v.getResources().getDisplayMetrics().density;ratio=r;oldDescription=v.getContentDescription();animate=ValueAnimator.areAnimatorsEnabled();glow=c.glow;hdrGlow=c.hdrGlow;badge=c.badge;paint.setTypeface(Typeface.create("sans-serif-medium",Typeface.BOLD));}
- static void clear(ImageView view){HdrFrame old=FRAMES.remove(view);if(old==null)return;View r=old.root.get();if(r!=null){r.getOverlay().remove(old);old.restoreWindow(r);r.invalidate();}view.removeOnAttachStateChangeListener(old);if("HDR 截图预览".contentEquals(view.getContentDescription()==null?"":view.getContentDescription()))view.setContentDescription(old.oldDescription);
+ static void clear(ImageView view){HdrFrame old=FRAMES.remove(view);if(old==null)return;View r=old.root.get();if(r!=null){r.getOverlay().remove(old);r.invalidate();}view.removeOnAttachStateChangeListener(old);if("HDR 截图预览".contentEquals(view.getContentDescription()==null?"":view.getContentDescription()))view.setContentDescription(old.oldDescription);
   // RenderThread may still reference the previous display list: let bitmap lifetime follow GC.
   old.colorWheel=null;
  }
- static void attach(ImageView v,HookConfig config,float ratio){clear(v);HdrFrame f=new HdrFrame(v,config,ratio);FRAMES.put(v,f);v.addOnAttachStateChangeListener(f);v.setContentDescription("HDR 截图预览");View r=v.getRootView();f.setBounds(0,0,r.getWidth(),r.getHeight());f.enableWindow(r);r.getOverlay().add(f);r.invalidate();MiuiHook.log("HDR bloom attached glow="+config.glow+" hdrGlow="+config.hdrGlow+" badge="+config.badge);}
- private void enableWindow(View r){if(changedWindow||!hdrGlow||!glow)return;try{
-  if(r.getLayoutParams() instanceof WindowManager.LayoutParams){WindowManager.LayoutParams p=(WindowManager.LayoutParams)r.getLayoutParams();oldMode=p.getColorMode();oldHeadroom=p.getDesiredHdrHeadroom();p.setColorMode(2);p.setDesiredHdrHeadroom(Math.max(1f,ratio));((WindowManager)r.getContext().getSystemService("window")).updateViewLayout(r,p);changedWindow=true;MiuiHook.log("HDR bloom window mode="+p.getColorMode()+" headroom="+p.getDesiredHdrHeadroom());}
- }catch(Throwable t){MiuiHook.log("HDR bloom window unavailable: "+t);}}
- private void restoreWindow(View r){if(!changedWindow)return;try{WindowManager.LayoutParams p=(WindowManager.LayoutParams)r.getLayoutParams();p.setColorMode(oldMode);p.setDesiredHdrHeadroom(oldHeadroom);((WindowManager)r.getContext().getSystemService("window")).updateViewLayout(r,p);}catch(Throwable t){MiuiHook.log("Preview window restore: "+t);}changedWindow=false;}
+ static void attach(ImageView v,HookConfig config,float ratio){clear(v);HdrFrame f=new HdrFrame(v,config,ratio);FRAMES.put(v,f);v.addOnAttachStateChangeListener(f);v.setContentDescription("HDR 截图预览");View r=v.getRootView();f.setBounds(0,0,r.getWidth(),r.getHeight());r.getOverlay().add(f);r.invalidate();MiuiHook.log("HDR bloom attached glow="+config.glow+" hdrGlow="+config.hdrGlow+" badge="+config.badge);}
  private void createBloom(){
   // A small reusable HDR color field; geometry and bloom are evaluated on the
   // GPU each frame, including the full-screen-to-thumbnail transition.
@@ -50,14 +45,14 @@ final class HdrFrame extends Drawable implements View.OnAttachStateChangeListene
   long now=SystemClock.uptimeMillis();if(rect.width()<1||rect.height()<1)return;
   if(pulseStart==0)pulseStart=now;long elapsed=now-pulseStart;
   float radius=12*density;Drawable content=v.getDrawable();try{radius=((Number)content.getClass().getMethod("getCornerRadius").invoke(content)).floatValue()*rect.width()/v.getWidth();}catch(Throwable ignored){}
-  if(glow){if(colorWheel==null){createBloom();enableWindow(r);}float padding=22*density;destination.set(rect.left-padding,rect.top-padding,rect.right+padding,rect.bottom+padding);paint.setShader(null);paint.setStyle(Paint.Style.FILL);
+  if(glow){if(colorWheel==null)createBloom();float padding=22*density;destination.set(rect.left-padding,rect.top-padding,rect.right+padding,rect.bottom+padding);paint.setShader(null);paint.setStyle(Paint.Style.FILL);
    int layer=canvas.saveLayer(destination,null);float cx=destination.centerX(),cy=destination.centerY(),half=(float)Math.hypot(destination.width(),destination.height())/2;
    wheelBounds.set(cx-half,cy-half,cx+half,cy+half);int rotated=canvas.save();if(animate)canvas.rotate((elapsed%3600)*0.1f,cx,cy);paint.setAlpha(255);canvas.drawBitmap(colorWheel,null,wheelBounds,paint);canvas.restoreToCount(rotated);
    float pulse=animate?0.94f+0.06f*(float)Math.sin(Math.PI*elapsed/1100f):1;mask.setFloatUniform("edge",rect.left,rect.top,rect.right,rect.bottom);mask.setFloatUniform("radius",radius);mask.setFloatUniform("density",density);mask.setFloatUniform("opacity",effectiveOpacity*pulse/255f);canvas.drawPaint(maskPaint);canvas.restoreToCount(layer);
   }
   if(badge){paint.setShader(null);paint.setStyle(Paint.Style.FILL);paint.setTextSize(10*density);float tw=paint.measureText("HDR"),bw=tw+12*density,bh=19*density,x=rect.right-bw-8*density,y=rect.top+8*density;destination.set(x,y,x+bw,y+bh);paint.setColor(0xe61b2639);paint.setAlpha(225*effectiveOpacity/255);canvas.drawRoundRect(destination,5*density,5*density,paint);paint.setColor(0xffddf8ff);paint.setAlpha(effectiveOpacity);canvas.drawText("HDR",x+6*density,y+(bh-paint.ascent()-paint.descent())/2,paint);}
  }
- static void beforeCapture(){final CountDownLatch cleared=new CountDownLatch(1);Runnable work=()->{try{boolean any=!FRAMES.isEmpty();for(ImageView v:new ArrayList<ImageView>(FRAMES.keySet()))if(v!=null)clear(v);if(any)MiuiHook.log("Previous HDR bloom removed before capture");}finally{cleared.countDown();}};
+ static void beforeCapture(){final CountDownLatch cleared=new CountDownLatch(1);Runnable work=()->{try{boolean any=!FRAMES.isEmpty();for(ImageView v:new ArrayList<ImageView>(FRAMES.keySet()))if(v!=null)clear(v);PreviewHdr.clearAll();if(any)MiuiHook.log("Previous HDR bloom removed before capture");}finally{cleared.countDown();}};
   if(Looper.myLooper()==Looper.getMainLooper()){work.run();return;}
   new Handler(Looper.getMainLooper()).post(work);try{if(!cleared.await(400,TimeUnit.MILLISECONDS))MiuiHook.log("Preview clear delayed; capture layer exclusion remains active");}catch(InterruptedException e){Thread.currentThread().interrupt();}
  }

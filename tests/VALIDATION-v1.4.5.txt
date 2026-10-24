@@ -1,0 +1,59 @@
+MI Screen HDR Enhanced 1.4.5 — validation scope
+
+Device: Xiaomi 17 Ultra / nezha, HyperOS OS4.0.4.0.XPACNXM,
+Android 17 API 37, Xiaomi screenshot RELEASE-1.6.3.41-09181700.
+
+Passed on device, without capturing the user's foreground app:
+- 48 image fixture checks: sRGB / Display P3, RGB / ALPHA_8 gainmaps,
+  uniform and mixed metadata, near-white ramp, fallback inputs, HDR decode.
+- 22 production JPEG codec/fallback checks (PrecisionCodecTest.java).
+- 15 preview lifecycle checks (PreviewHdrTest.java): HDR independent of
+  glow options, original bitmap retained, no intermediate View cache,
+  window touch-region update policy, restore at cleanup and HDR/SDR changes.
+  Uses real Android View objects with a recording WindowManager, no window.
+- ShellTest.java: original Xiaomi editor/shell classes, HDR reconstruction,
+  transparent PNG, opaque JPEG matte, RGB/A8 metadata, annotations and cutouts.
+  The proprietary screenshot APK and shell assets are not redistributed.
+- Independent NumPy audit of 10 known image cases: pixel occupancy, full-HDR
+  radiance, PNG roundtrip and repeated algorithm application.
+- 209 files (raw base/gain pixels, metadata JSON, PNG and JPEG) from those
+  cases are byte-for-byte identical to the 1.4 implementation before the
+  lookup-table and miniature-metadata-template performance changes.
+- Root module regression: 41 recovery/mount tests and 9 ELF patch tests
+  passed during this release's development; root algorithms did not change
+  after those tests. This is simulation, not all root frameworks on devices.
+
+Timing: PrecisionBenchmark.java, same 1200x2608 calibrated capture fixture,
+2 warmups and 7 measured iterations per build; median milliseconds:
+                         Before       1.4.5
+Pixel gainmap rebase      265.048333    34.372552
+HDR JPEG 100 / 4:4:4      47.589740     29.705208
+JPEG output bytes        861450        861450
+These are in-process processing times, not total key-to-file latency.
+Other scenes, device temperature and hardware can change the results.
+This improvement primarily affects the optional pixel-precision path.
+
+APK: versionName 1.4.5, versionCode 10; v3 signature verified. Native library
+is uncompressed and 16 KB aligned; matches the tested library. System APK,
+SurfaceFlinger library and Mountify configuration are not changed by this APK.
+
+Not claimed: physical display brightness/overexposure is fully verified,
+all firmware Hook signatures are supported, complete live animation and
+continuous screenshot flow pass, all root/mount backends pass cold boot.
+The user will test the new preview on screen after this release.
+JPG is still lossy; unchanged output in these fixtures is not a universal
+promise of exact source-pixel recovery or zero spread on arbitrary input.
+
+Reproduce the production codec, lifecycle, benchmark and shell harness:
+  export ANDROID_HOME=/path/to/sdk
+  export JAVA_HOME=/path/to/jdk17
+  bash tests/build-image-tests.sh
+Copy build/image-tests/dex/classes.dex, lib/arm64-v8a/libmiuihdr.so and the
+experiment's fixtures/capture.png into your own device test directory.
+In Android's shell (adjust paths):
+  export CLASSPATH=/data/local/tmp/hdr-tests/classes.dex
+  app_process /system/bin dev.local.miuihdr.PrecisionCodecTest /data/local/tmp/hdr-tests/libmiuihdr.so
+  app_process /system/bin dev.local.miuihdr.PreviewHdrTest
+  app_process /system/bin dev.local.miuihdr.PrecisionBenchmark /data/local/tmp/hdr-tests/libmiuihdr.so /data/local/tmp/hdr-tests/capture.png
+ShellTest additionally needs the device's own Xiaomi screenshot APK in
+CLASSPATH and local shell.json/png/svg assets, as described in the README.

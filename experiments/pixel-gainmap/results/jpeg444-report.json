@@ -1,0 +1,163 @@
+{
+  "rebased": {
+    "input": {
+      "gain_pixels": 1994643,
+      "extra_gain_pixels": 1988762,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 24.0,
+      "hdr_channel_error_max_percent": 0.0752944326208526,
+      "hdr_luminance_error_max_percent": 0.07529443262086494,
+      "hdr_luminance_error_mean_percent": 0.009001152035161667,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "png": {
+      "gain_pixels": 5881,
+      "extra_gain_pixels": 0,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 0.0,
+      "hdr_channel_error_max_percent": 0.0,
+      "hdr_luminance_error_max_percent": 0.0,
+      "hdr_luminance_error_mean_percent": 0.0,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "jpg": {
+      "gain_pixels": 6203,
+      "extra_gain_pixels": 322,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 1.0,
+      "hdr_channel_error_max_percent": 1.115669503268626,
+      "hdr_luminance_error_max_percent": 1.115669503268626,
+      "hdr_luminance_error_mean_percent": 0.018611114647599382,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "444": {
+      "gain_pixels": 6203,
+      "extra_gain_pixels": 322,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 1.0,
+      "hdr_channel_error_max_percent": 1.115669503268626,
+      "hdr_luminance_error_max_percent": 1.115669503268626,
+      "hdr_luminance_error_mean_percent": 0.018611114647599382,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "rgb444": {
+      "gain_pixels": 6203,
+      "extra_gain_pixels": 322,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 1.0,
+      "hdr_channel_error_max_percent": 1.115669503268626,
+      "hdr_luminance_error_max_percent": 1.115669503268626,
+      "hdr_luminance_error_mean_percent": 0.018611114647599382,
+      "sdr_pixels_over_white_plus_1percent": 0
+    }
+  },
+  "p3-rgb-uniform": {
+    "input": {
+      "gain_pixels": 66563,
+      "extra_gain_pixels": 66047,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 16.0,
+      "hdr_channel_error_max_percent": 0.006012307190986253,
+      "hdr_luminance_error_max_percent": 0.0005052018841061864,
+      "hdr_luminance_error_mean_percent": 0.0005052018841061865,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "png": {
+      "gain_pixels": 516,
+      "extra_gain_pixels": 0,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 0.0,
+      "hdr_channel_error_max_percent": 0.0,
+      "hdr_luminance_error_max_percent": 0.0,
+      "hdr_luminance_error_mean_percent": 0.0,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "jpg": {
+      "gain_pixels": 520,
+      "extra_gain_pixels": 4,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 1.0,
+      "hdr_channel_error_max_percent": 462.411705035451,
+      "hdr_luminance_error_max_percent": 24.685348581599825,
+      "hdr_luminance_error_mean_percent": 18.48325507634286,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "444": {
+      "gain_pixels": 520,
+      "extra_gain_pixels": 4,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 1.0,
+      "hdr_channel_error_max_percent": 3.1956797875027387,
+      "hdr_luminance_error_max_percent": 0.9286560908170332,
+      "hdr_luminance_error_mean_percent": 0.003599442212469121,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "rgb444": {
+      "gain_pixels": 520,
+      "extra_gain_pixels": 4,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 1.0,
+      "hdr_channel_error_max_percent": 3.1956797875027387,
+      "hdr_luminance_error_max_percent": 0.9656890987766753,
+      "hdr_luminance_error_mean_percent": 0.005686240899786142,
+      "sdr_pixels_over_white_plus_1percent": 0
+    }
+  },
+  "p3-rgb-mixed": {
+    "input": {
+      "gain_pixels": 66563,
+      "extra_gain_pixels": 66047,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 16.0,
+      "hdr_channel_error_max_percent": 0.008122049085386052,
+      "hdr_luminance_error_max_percent": 0.003962368102041915,
+      "hdr_luminance_error_mean_percent": 0.003962368102041914,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "png": {
+      "gain_pixels": 516,
+      "extra_gain_pixels": 0,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 0.0,
+      "hdr_channel_error_max_percent": 0.0,
+      "hdr_luminance_error_max_percent": 0.0,
+      "hdr_luminance_error_mean_percent": 0.0,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "jpg": {
+      "gain_pixels": 520,
+      "extra_gain_pixels": 4,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 1.0,
+      "hdr_channel_error_max_percent": 374.1921515443276,
+      "hdr_luminance_error_max_percent": 27.520767125307,
+      "hdr_luminance_error_mean_percent": 20.897256063480764,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "444": {
+      "gain_pixels": 520,
+      "extra_gain_pixels": 4,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 1.0,
+      "hdr_channel_error_max_percent": 0.0,
+      "hdr_luminance_error_max_percent": 0.0,
+      "hdr_luminance_error_mean_percent": 0.0,
+      "sdr_pixels_over_white_plus_1percent": 0
+    },
+    "rgb444": {
+      "gain_pixels": 520,
+      "extra_gain_pixels": 4,
+      "missing_gain_pixels": 0,
+      "extra_gain_max_byte": 1.0,
+      "hdr_channel_error_max_percent": 0.0,
+      "hdr_luminance_error_max_percent": 0.0,
+      "hdr_luminance_error_mean_percent": 0.0,
+      "sdr_pixels_over_white_plus_1percent": 0
+    }
+  },
+  "white_boundary": {
+    "omitted_positive_pairs": 185,
+    "strongest_omitted_radiance": 1.0104063337056426,
+    "meaning": "Quantization uncertainty: values marginally above white can be classified neutral, not a claim of exact scene truth."
+  }
+}

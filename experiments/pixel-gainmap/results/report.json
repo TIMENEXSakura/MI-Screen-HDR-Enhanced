@@ -1,0 +1,94 @@
+{
+  "size": [
+    1200,
+    2608
+  ],
+  "expected_hdr_pixels": 5881,
+  "variants": {
+    "source": {
+      "gain_positive_pixels": 5881,
+      "outside_expected_hdr": 0,
+      "missing_expected_hdr": 0,
+      "gain_peak_outside": 0.0,
+      "relative_hdr_error_vs_capture_max_percent": 1.3454766955786719,
+      "relative_hdr_error_vs_capture_mean_percent": 0.3722553524482065,
+      "relative_sdr_error_vs_capture_max_percent": 21.34718908008673,
+      "relative_sdr_error_vs_capture_mean_percent": 0.7477012766927121,
+      "reconstructed_above_white_outside_by_more_than_1percent": 0,
+      "hdr_source_mean_ratio": 1.0,
+      "input_hdr_patch_mean": 1.818896263319945,
+      "hdr_patch_mean": 1.8256440927216189
+    },
+    "input": {
+      "gain_positive_pixels": 1994643,
+      "outside_expected_hdr": 1988762,
+      "missing_expected_hdr": 0,
+      "gain_peak_outside": 0.09411764705882353,
+      "relative_hdr_error_vs_capture_max_percent": 0.0,
+      "relative_hdr_error_vs_capture_mean_percent": 0.0,
+      "relative_sdr_error_vs_capture_max_percent": 0.0,
+      "relative_sdr_error_vs_capture_mean_percent": 0.0,
+      "reconstructed_above_white_outside_by_more_than_1percent": 0,
+      "hdr_source_mean_ratio": 0.9963038637001725,
+      "input_hdr_patch_mean": 1.818896263319945,
+      "hdr_patch_mean": 1.818896263319945
+    },
+    "memory": {
+      "gain_positive_pixels": 5881,
+      "outside_expected_hdr": 0,
+      "missing_expected_hdr": 0,
+      "gain_peak_outside": 0.0,
+      "relative_hdr_error_vs_capture_max_percent": 0.07523778275920755,
+      "relative_hdr_error_vs_capture_mean_percent": 0.008994380252680307,
+      "relative_sdr_error_vs_capture_max_percent": 0.7970401639936753,
+      "relative_sdr_error_vs_capture_mean_percent": 0.2521923422813496,
+      "reconstructed_above_white_outside_by_more_than_1percent": 0,
+      "hdr_source_mean_ratio": 0.9962151139340221,
+      "input_hdr_patch_mean": 1.818896263319945,
+      "hdr_patch_mean": 1.818734237833642
+    },
+    "png": {
+      "gain_positive_pixels": 5881,
+      "outside_expected_hdr": 0,
+      "missing_expected_hdr": 0,
+      "gain_peak_outside": 0.0,
+      "relative_hdr_error_vs_capture_max_percent": 0.07523778275920755,
+      "relative_hdr_error_vs_capture_mean_percent": 0.008994380252680307,
+      "relative_sdr_error_vs_capture_max_percent": 0.7970401639936753,
+      "relative_sdr_error_vs_capture_mean_percent": 0.2521923422813496,
+      "reconstructed_above_white_outside_by_more_than_1percent": 0,
+      "hdr_source_mean_ratio": 0.9962151139340221,
+      "input_hdr_patch_mean": 1.818896263319945,
+      "hdr_patch_mean": 1.818734237833642
+    },
+    "jpg": {
+      "gain_positive_pixels": 6203,
+      "outside_expected_hdr": 322,
+      "missing_expected_hdr": 0,
+      "gain_peak_outside": 0.00392156862745098,
+      "relative_hdr_error_vs_capture_max_percent": 1.1156702268518097,
+      "relative_hdr_error_vs_capture_mean_percent": 0.025960030666887526,
+      "relative_sdr_error_vs_capture_max_percent": 2.417054410123121,
+      "relative_sdr_error_vs_capture_mean_percent": 0.3137821875919331,
+      "reconstructed_above_white_outside_by_more_than_1percent": 0,
+      "hdr_source_mean_ratio": 0.9960810313000853,
+      "input_hdr_patch_mean": 1.818896263319945,
+      "hdr_patch_mean": 1.8184894506650586
+    },
+    "repeat": {
+      "gain_positive_pixels": 5881,
+      "outside_expected_hdr": 0,
+      "missing_expected_hdr": 0,
+      "gain_peak_outside": 0.0,
+      "relative_hdr_error_vs_capture_max_percent": 0.07523778275920755,
+      "relative_hdr_error_vs_capture_mean_percent": 0.008994380252680307,
+      "relative_sdr_error_vs_capture_max_percent": 0.7970401639936753,
+      "relative_sdr_error_vs_capture_mean_percent": 0.2521923422813496,
+      "reconstructed_above_white_outside_by_more_than_1percent": 0,
+      "hdr_source_mean_ratio": 0.9962151139340221,
+      "input_hdr_patch_mean": 1.818896263319945,
+      "hdr_patch_mean": 1.818734237833642
+    }
+  },
+  "repeat_relative_vs_first_max_percent": 0.0
+}

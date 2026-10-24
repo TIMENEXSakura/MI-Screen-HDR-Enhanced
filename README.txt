@@ -1,15 +1,16 @@
-小米截屏HDR增强 / MI Screen HDR Enhanced 1.3.2
+小米截屏HDR增强 / MI Screen HDR Enhanced 1.4.5
 
 本机适配
 小米 17 Ultra / nezha，HyperOS OS4.0.4.0.XPACNXM，Android 17（SDK 37）。
 小米截屏：com.miui.screenshot，RELEASE-1.6.3.41-09181700 / 10603041。
 安装 APK 后在 LSPosed 启用模块，仅勾选“小米截屏”。不替换系统 APK。
 设置页“生成挂载模块”会读取本机库并生成对应 Magisk/KernelSU/APatch ZIP；“生成并安装挂载模块”会进一步安装。两者都需要本应用 Root 权限。
-生成文件位于当前 Android 用户的 Download/MI-Screen-HDR-Enhanced/MI-Screen-HDR-Enhanced-mount-1.3.2.zip。
+生成文件位于当前 Android 用户的 Download/MI-Screen-HDR-Enhanced/MI-Screen-HDR-Enhanced-mount-1.4.5.zip。
 
 功能
 - LSPosed native_init 注入 libmiuihdr.so，拦截截屏进程暂时关闭 HDR 的调用。
 - 保留小米原生 JPG 保存及增益图。
+- 预览图独立启用 HDR，从全屏出现到缩略图动画保留原增益图，不依赖辉光开关。
 - 修复编辑器重绘丢失增益图，以及带壳合成丢失增益图这两段流程。
 - 带壳增益图按真实机身素材的缩放、边距、圆角同步处理；边框保持 SDR。
 - 原生“带壳”按钮三态循环：带壳 → 带壳 · JPG → 带壳 · PNG HDR → 带壳（关闭）。不弹出菜单，状态只作用于当前编辑会话。SDR 图片对应显示 PNG。
@@ -37,9 +38,10 @@ UI 框架：Google / AndroidX Jetpack Compose Material 3，Apache-2.0。
 无法从已丢失 HDR 数据的 SDR 截图恢复原始高光，也不保证每个平台或受保护画面都能捕获。
 
 验证范围
-截图、编辑、带壳和连续截图已在上述设备进行验证。设备若启用了其他截图替换模块，应先确认系统按键实际进入小米原生截图。
+此前版本的截图、编辑、带壳和连续截图已在上述设备进行验证。1.4.5 的新增预览观感及完整连续截屏测试待用户验证；图像算法、编码、窗口生命周期已完成设备侧测试。设备若启用了其他截图替换模块，应先确认系统按键实际进入小米原生截图。
 底层补丁生成与恢复逻辑通过静态验证和模拟测试；自动回退尚未做真实故障/冷启动验证。
-本发布版不包含实验性的增益图重算算法。
+1.4.5 新增默认关闭的“像素增益优化”开关：逐像素重算、JPG 质量 100 和 4:4:4。SDR 观感会变化；JPG 仍有损。
+精确查表及微型元数据模板减少处理耗时；测试图的重算中位数由 265.0 ms 降至 34.4 ms，JPEG 编码由 47.6 ms 降至 29.7 ms。不是完整截图总耗时。详见 tests/VALIDATION-v1.4.5.txt。
 
 回退
 关闭 LSPosed 中本模块并结束、重启“小米截屏”进程即可停止 Hook。
@@ -62,3 +64,6 @@ NativeProbeEntry 在原本非导出的 TakeScreenshotService 中处理 dev.local
 根据当前 Root 提供者选择安装入口。沿用已有 Magic Mount、OverlayFS、Mountify 或兼容元模块，不再强制依赖 Mountify。
 兼容安装器移动分区目录，保留挂载提供者的跳过标记。Mountify 手动选择未包含本模块时会报告原因，不修改全局配置。
 安装后须经过下次启动验证才确认底层覆盖生效；本机仅验证 SukiSU + Mountify 的生成流程，其他组合属于模拟验证。
+
+JPEG 编码：libjpeg-turbo 3.1.2。许可位于 assets/licenses。
+This software is based in part on the work of the Independent JPEG Group.

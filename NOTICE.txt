@@ -23,3 +23,7 @@ The API JAR is a compile-only dependency; no Xposed runtime is bundled.
 System software and downloaded device-shell artwork
 Not distributed in this source repository or public release assets.
 Generated mount packages are produced locally from the device's own library.
+JPEG encoder: libjpeg-turbo 3.1.2, built from pinned upstream source.
+See third_party/libjpeg-turbo/ for source URL and licenses; the APK bundles
+the relevant notices in assets/licenses/.
+This software is based in part on the work of the Independent JPEG Group.

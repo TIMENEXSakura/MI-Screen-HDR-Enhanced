@@ -1,5 +1,5 @@
 package dev.local.miuihdr;
-import android.graphics.*;import android.net.Uri;import java.io.*;import java.util.Locale;
+import android.graphics.*;import android.net.Uri;import java.io.*;import java.nio.ByteBuffer;import java.util.Locale;
 public final class HdrTestAssets {
  public static Bitmap[] load(android.content.Context c)throws IOException{
  BitmapFactory.Options o=new BitmapFactory.Options();o.inSampleSize=2;Bitmap photo;
@@ -19,15 +19,26 @@ public final class HdrTestAssets {
         try {
             String base = bounds.outWidth + " × " + bounds.outHeight + "  ·  " + bounds.outMimeType;
             if (!image.hasGainmap()) return base + "\n\n没有增益图。这张图片仅能按 SDR 显示。";
-            Gainmap gm = image.getGainmap(); Bitmap map = gm.getGainmapContents(); int[] row = new int[map.getWidth()];
+            Gainmap gm = image.getGainmap(); Bitmap map = gm.getGainmapContents();
             int peak = 0; long nonzero = 0; boolean alpha = map.getConfig() == Bitmap.Config.ALPHA_8;
-            for (int y = 0; y < map.getHeight(); y++) { map.getPixels(row, 0, row.length, 0, y, row.length, 1);
-                for (int p : row) { int a = p >>> 24; int v = alpha ? a : Math.max((p >>> 16) & 255, Math.max((p >>> 8) & 255, p & 255)) * a / 255;
-                    peak = Math.max(peak, v); if (v > 1) nonzero++; }
+            if (alpha || map.getConfig() == Bitmap.Config.ARGB_8888) {
+                ByteBuffer pixels = ByteBuffer.allocate(map.getByteCount()); map.copyPixelsToBuffer(pixels);
+                int channels = alpha ? 1 : 4, stride = map.getRowBytes();
+                for (int y = 0; y < map.getHeight(); y++) for (int x = 0; x < map.getWidth(); x++) {
+                    int at = y * stride + x * channels, v = pixels.get(at) & 255;
+                    if (!alpha) v = Math.max(v, Math.max(pixels.get(at + 1) & 255, pixels.get(at + 2) & 255));
+                    peak = Math.max(peak, v); if (v > 0) nonzero++;
+                }
+            } else {
+                int[] row = new int[map.getWidth()];
+                for (int y = 0; y < map.getHeight(); y++) { map.getPixels(row, 0, row.length, 0, y, row.length, 1);
+                    for (int p : row) { int v = Math.max((p >>> 16) & 255, Math.max((p >>> 8) & 255, p & 255));
+                        peak = Math.max(peak, v); if (v > 0) nonzero++; }
+                }
             }
-            float ratio = gm.getDisplayRatioForFullHdr(); boolean valid = peak > 1 && Float.isFinite(ratio) && ratio > 1.01f;
-            return base + "\n\n" + (valid ? "检测到有效 HDR 增益信号。" : peak <= 1 ? "增益图接近全黑，未检测到有效高光。" : "存在增益图，但 HDR 比例没有提升。") +
-                String.format(Locale.ROOT, "\n完整 HDR 显示比例：%.3f×\n增益图峰值：%d / 255\n有效区域：%.2f%%", ratio, peak, nonzero * 100.0 / map.getWidth() / map.getHeight()) +
+            float ratio = gm.getDisplayRatioForFullHdr(); boolean valid = peak > 0 && Float.isFinite(ratio) && ratio > 1;
+            return base + "\n\n" + (valid ? "检测到有效 HDR 增益信号。" : peak == 0 ? "增益图全黑，未检测到非零增益。" : "存在增益图，但 HDR 比例没有提升。") +
+                String.format(Locale.ROOT, "\n完整 HDR 显示比例：%.3f×\n增益图峰值：%d / 255\n非零增益像素：%d（%.4f%%）", ratio, peak, nonzero, nonzero * 100.0 / map.getWidth() / map.getHeight()) +
                 (options.inSampleSize > 1 ? "\n大图已缩小分析，极小高光可能遗漏。" : "") + "\n\n有效增益图表示文件含有 HDR 信息，不代表各应用的显示亮度相同。";
         } finally { image.recycle(); }
     }

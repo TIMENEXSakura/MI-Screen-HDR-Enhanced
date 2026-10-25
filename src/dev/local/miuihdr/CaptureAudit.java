@@ -41,17 +41,7 @@ final class CaptureAudit {
   }catch(Throwable error){log.append("\nnative_diagnostic_unavailable=").append(error.getClass().getSimpleName()).append('\n');}
  }
  static void converted(Bitmap bitmap){
-  StringBuilder log=ACTIVE.get();if(log!=null)try{log.append("before_precision ").append(metadata(bitmap)).append('\n');}catch(Throwable ignored){}
- }
- static void precision(int highlights,Bitmap source,Bitmap softwareMap){
-  StringBuilder log=ACTIVE.get();if(log==null)return;
-  try{
-   log.append("precision_highlight_pixels=").append(highlights);
-   // Only an empty candidate needs this extra pass. Reuse the compositor's
-   // software map, avoiding another hardware copy in the normal capture path.
-   if(highlights==0)log.append(" source_first_signal=").append(NativeBridge.firstSignal(softwareMap)).append(" original_retained=true");
-   log.append('\n');
-  }catch(Throwable ignored){log.append(" diagnostic_unavailable\n");}
+  StringBuilder log=ACTIVE.get();if(log!=null)try{log.append("native_bitmap_retained ").append(metadata(bitmap)).append('\n');}catch(Throwable ignored){}
  }
  static void end(Context context,Bitmap output,HdrSignal.Info info){
   StringBuilder log=ACTIVE.get();ACTIVE.remove();if(log==null)return;

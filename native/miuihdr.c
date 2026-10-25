@@ -61,13 +61,14 @@ JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_firstSignal(JNIEnv *e
  if(info.format!=ANDROID_BITMAP_FORMAT_A_8&&info.format!=ANDROID_BITMAP_FORMAT_RGBA_8888)return -1;
  if(AndroidBitmap_lockPixels(env,bitmap,&pixels)!=0||!pixels)return -1;
  int peak=0;const unsigned char *data=pixels;
- for(uint32_t y=0;y<info.height&&peak<=1;y++){
+ for(uint32_t y=0;y<info.height&&peak==0;y++){
   const unsigned char *row=data+(size_t)y*info.stride;
   for(uint32_t x=0;x<info.width;x++){
    int value;
    if(info.format==ANDROID_BITMAP_FORMAT_A_8)value=row[x];
-   else{const unsigned char *p=row+4*x;value=p[0]>p[1]?p[0]:p[1];if(p[2]>value)value=p[2];if((info.flags&ANDROID_BITMAP_FLAGS_ALPHA_MASK)==ANDROID_BITMAP_FLAGS_ALPHA_UNPREMUL)value=value*p[3]/255;}
-   if(value>peak)peak=value;if(peak>1)break;
+   // Gainmap shaders sample raw RGB; RGBA alpha is not a visibility mask.
+   else{const unsigned char *p=row+4*x;value=p[0]>p[1]?p[0]:p[1];if(p[2]>value)value=p[2];}
+   if(value>peak)peak=value;if(peak>0)break;
   }
  }
  AndroidBitmap_unlockPixels(env,bitmap);return peak;
@@ -120,5 +121,4 @@ JNIEXPORT jboolean JNICALL Java_dev_local_miuihdr_NativeBridge_composeShellGainm
  done:free(ratios);for(int i=locked-1;i>=0;i--)AndroidBitmap_unlockPixels(env,objects[i]);return ok;
 }
 
-#include "gainmap_precision.c"
 #include "jpeg444.c"

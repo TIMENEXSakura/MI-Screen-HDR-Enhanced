@@ -68,7 +68,9 @@ public final class MiuiHook {
      Bitmap b=null;HdrSignal.Info info=null;
      try{
       if(!param.hasThrowable()&&param.getResult() instanceof Bitmap){b=(Bitmap)param.getResult();CaptureAudit.converted(b);
-       try{Bitmap precise=PrecisionHooks.capture(b);if(precise!=b){param.setResult(precise);b=precise;}}catch(Throwable t){log("Pixel capture skipped; original retained: "+t);}
+       // Preserve the native SDR/HDR separation, including gains in midtones.
+       // Reconstructing and clipping to SDR white moves those gains into the
+       // base and makes only the brightest regions respond to HDR headroom.
        info=HdrSignal.inspect(b);log("Native capture "+b.getWidth()+"x"+b.getHeight()+" "+info);
       }
      }finally{
@@ -135,6 +137,6 @@ public final class MiuiHook {
     });
    }
   }catch(Throwable t){log("Save observer unavailable: "+t);}
-  log("Installed native MIUI HDR hooks v1.5.2-hdrfix.1 process="+process);
+  log("Installed native MIUI HDR hooks v1.5.2-hdrfix.2 process="+process);
  }
 }

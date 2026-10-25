@@ -130,10 +130,10 @@ class SettingsActivity : ComponentActivity() {
             SectionTitle("HDR 图像质量")
             Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
                 Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                    EffectSwitch("像素增益优化", "逐像素重算增益；JPG 使用全尺寸增益图、质量 100 和 4:4:4 编码。实验功能，默认关闭。", "pixel_precision", false)
+                    EffectSwitch("高质量 HDR JPG", "保留原始增益分布与分辨率，使用质量 100 和 4:4:4 编码。JPG 仍为有损格式，文件更大、保存稍慢。默认关闭。", "pixel_precision", false)
                 }
             }
-            Text("下次截图生效。SDR 观感会变化，保存耗时和 JPG 体积可能增加。JPG 仍有压缩误差；不支持的输入自动沿用原流程。", style = MaterialTheme.typography.bodySmall,
+            Text("下次截图生效。不重新划分发光区域；不支持的输入自动沿用原流程。", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
             TextButton(onClick = { aboutReturn = 2; page = 5 }) { Icon(Icons.Default.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("关于小米截屏HDR增强") }
         }

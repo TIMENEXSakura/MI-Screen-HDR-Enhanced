@@ -9,7 +9,8 @@ import java.io.OutputStream;
 final class PrecisionHooks {
  private static final ThreadLocal<Boolean> ENCODING=new ThreadLocal<>();
  static boolean enabled(){Context context=HookObjects.currentApplication();return context!=null&&HookConfig.read(context).precision;}
- static Bitmap capture(Bitmap input){return input!=null&&input.hasGainmap()&&enabled()?GainmapPrecision.tryApply(input):input;}
+ // Keep capture pixels and gainmap untouched. Quality is an encoding choice;
+ // thresholding reconstructed highlights would discard valid gain below SDR white.
  static void install()throws Exception{
   HookRuntime.add(Bitmap.class.getDeclaredMethod("compress",Bitmap.CompressFormat.class,int.class,OutputStream.class),new Callback(){
    protected void before(Call param){

@@ -132,7 +132,7 @@ class SettingsActivity : ComponentActivity() {
                 TextButton(onClick = { page = 1 }) { Text("打开 HDR 测试"); Icon(Icons.Default.ArrowForward, null, Modifier.padding(start = 8.dp).size(18.dp)) }
             }
         }
-        Text("1.4.5  ·  小米原生截屏增强", style = MaterialTheme.typography.labelMedium,
+        Text("1.4.6-dev  ·  小米原生截屏增强", style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
     }
     @Composable private fun HomeTile(title: String, subtitle: String, icon: ImageVector, modifier: Modifier, action: () -> Unit) {
@@ -189,10 +189,10 @@ class SettingsActivity : ComponentActivity() {
                         Text(if (busy) "正在处理" else "生成挂载模块")
                     }
                     OutlinedButton(onClick = { generateMount(true) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("生成并安装挂载模块") }
-                    Text("按本机库生成 Magisk / KernelSU / APatch 模块，沿用已有挂载方式，保存到 Download/MI-Screen-HDR-Enhanced。包含原库备份和异常回退。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("按本机库生成 Magisk / KernelSU / APatch 模块，沿用已有挂载方式，保存到 Download/MI-Screen-HDR-Enhanced。生成并安装后自动启用，重启后验证挂载；包含原库备份和异常回退。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     FilledTonalButton(onClick = { try { startActivity(Intent().setClassName("org.lsposed.manager", "org.lsposed.manager.ui.activity.MainActivity")) }
                         catch (_: Exception) { status = "请从你的 LSPosed 管理器启用本模块，仅勾选“小米截屏”。" } }, modifier = Modifier.fillMaxWidth()) { Text("打开 LSPosed") }
-                    Text("作用域：小米截屏 / com.miui.screenshot。通过 SO 注入增强捕获，系统截屏 APK 保持原样。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("需要支持 API 102 的 LSPosed；作用域：小米截屏 / com.miui.screenshot。通过 SO 注入增强捕获，系统截屏 APK 保持原样。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             TextButton(onClick = { about = true }) { Icon(Icons.Default.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("UI 框架与第三方许可") }
@@ -226,7 +226,7 @@ class SettingsActivity : ComponentActivity() {
             }
             log.delete()
             getSharedPreferences("local_status", MODE_PRIVATE).edit().putString("detail", detail).apply()
-            if (p.exitValue() == 0) { if (install) "挂载模块已安装，原库已备份。下次启动验证，异常时回退。" else "挂载模块已生成：\n" + detail.lineSequence().firstOrNull { it.startsWith("GENERATED_ZIP=") }?.removePrefix("GENERATED_ZIP=") } else "启用未完成：${detail.takeLast(900)}"
+            if (p.exitValue() == 0) { if (install) "挂载模块已安装并启用，原库已备份。重启后自动挂载并验证，异常时回退。" else "挂载模块已生成：\n" + detail.lineSequence().firstOrNull { it.startsWith("GENERATED_ZIP=") }?.removePrefix("GENERATED_ZIP=") } else "启用未完成：${detail.takeLast(900)}"
         }
     } catch (_: java.io.IOException) { "请先在 Magisk / KernelSU / APatch 中授予“${getString(R.string.app_name)}”Root 权限，然后重试。" }
       catch (e: Exception) { "启用未完成：${e.message}" }

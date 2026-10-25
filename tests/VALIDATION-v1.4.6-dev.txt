@@ -1,0 +1,65 @@
+MI Screen HDR Enhanced 1.4.6-dev — 本地验证记录
+日期：2026-10-25 UTC
+基线：GitHub 最新 Release v1.4.5，提交 2e31b93d40db188da23b8b045021c0b8c5926524。
+这是本地开发版本，不是已经发布的上游 Release。
+
+改动
+1. hdrpatch 从 ELF 符号获得 renderScreenImpl 的代码范围，再解码 AArch64
+   call/返回值、vtable 调用、浮点比较/最小值选择、字段读取/写入及分支汇合。
+   字段偏移、寄存器、跳转距离从输入推导；通过 PT_LOAD 将虚拟地址转换为文件偏移。
+   只改一个 4 字节分支；probe 不写入。未知或歧义实现退出；失败不覆盖已有输出。
+2. libgui Hook 从已加载库解析完整 setMiHdrInfoFlags(int,int) 符号，校验唯一库、
+   可执行段和入口。删除固定路径/RVA、prologue、SDK/固件哈希白名单。
+3. 删除通过固定地址写 SurfaceFlinger 缓存的 NativeFlags。由启动脚本设置开关。
+4. 生成并安装：校验本次 install.id，安装成功后自动启用并复查。
+   Magisk 使用 disable 标记；KernelSU/APatch 使用官方 module enable。
+   保留挂载提供者标记及恢复状态，安装/启用失败分别报告。
+5. 真正迁移 libxposed API 102.0.0：XposedModule、onPackageReady、intercept、
+   META-INF/xposed 入口/作用域；旧 API 82 JAR 和旧调用移除。
+   JPEG 写出异常使用 PASSTHROUGH，防止部分写入后回退追加第二个 JPEG。
+   共享日志独立于 XposedModule，普通设置页/root 进程不需要框架 API 类。
+
+自动验证
+- tests/test_patch_probe.py：39 项合成 ELF 场景；包括函数地址变化、非等值 VA/文件偏移、
+  寄存器重分配、字段/虚表偏移变化、NOP/指令调度变化、分支动态编码和精确还原。
+  错误谓词来源、寄存器/条件/字段/跳转、函数范围、歧义、缺符号、损坏 ELF 均拒绝。
+- 加 HDR_PATCH_SAMPLE 的真实已加载库只读输入验证：另 4 项，共 43 项通过。
+  对 /system_ext/lib64/libsurfaceflinger.so 的快照确认匹配位置，再在临时文件修改/还原，
+  与旧版本的本机补丁字节一致；输入和系统库未写入。
+- tests/test_loaded_symbol.py：8 项通过。编译独立 fixture SO，验证函数搬移、引用保活，
+  拒绝缺失、另一重载、同名数据、依赖库符号及多个同名库。
+- tests/LibraryLocatorTest.java：31 项通过。
+- tests/RootInstallerTest.java：81 项通过（隔离模拟目录和命令执行器）。
+- tests/test_mount_recovery.py：42 项通过（模拟挂载/恢复，不刷入系统）。
+- tests/test_libxposed_hooks.py：基于官方 API 102 编译运行拦截链，验证 Context 捕获、
+  JPEG 成功/编码失败回退/原始异常传播/递归/部分写入失败、对象身份状态及模块元数据。
+- 原生库启用 --no-undefined 编译；Android Release APK 经过 Kotlin/Java 编译、R8、
+  lintVital 和打包。检查 APK 的现代入口、作用域、原生库与嵌入的补丁生成器。
+
+复现
+python3 tests/test_patch_probe.py
+HDR_PATCH_SAMPLE=/path/to/owned/libsurfaceflinger.so python3 tests/test_patch_probe.py
+python3 tests/test_loaded_symbol.py
+python3 tests/test_mount_recovery.py
+mkdir -p build/locator-tests build/installer-tests
+javac -d build/locator-tests src/dev/local/miuihdr/LibraryLocator.java tests/LibraryLocatorTest.java
+java -cp build/locator-tests dev.local.miuihdr.LibraryLocatorTest
+javac -d build/installer-tests src/dev/local/miuihdr/RootInstaller.java tests/RootInstallerTest.java
+java -cp build/installer-tests dev.local.miuihdr.RootInstallerTest
+# 先按 README 完成 Gradle 编译，解析 io.github.libxposed:api:102.0.0
+ANDROID_HOME=/path/to/sdk python3 tests/test_libxposed_hooks.py
+
+验证边界
+- 此版本没有安装到手机、没有启用真实模块、没有触发冷启动或实际截图。
+  本记录不把上游版本的真机结果当作 API 102 迁移后的真机结果。
+- 自动启用是 Root 管理器的启用状态；底层库覆盖/缓存开关仍需重启生效并接受启动检查。
+  不会自动重启 SurfaceFlinger 或手机。
+- ELF64 AArch64，需受支持的函数符号和已识别控制/数据流。无 section headers、
+  无符号、函数内联或编译器改成另一控制流时会拒绝生成，不保证所有 ROM 适配。
+- 截屏 APK 的 Java 类名仍有版本依赖。API102 框架下的完整截图/编辑/带壳流程待真机验证。
+- 原生 Hook 不支持完整热卸载，因此模块不启用 API102 热重载。
+- 构建产物 unsigned.apk 尚未签名；需用自己的证书签名后安装。
+
+依赖来源
+https://github.com/libxposed/api
+https://central.sonatype.com/artifact/io.github.libxposed/api/102.0.0

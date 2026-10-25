@@ -14,11 +14,11 @@ MIT License: assets/MATERIALKOLOR-LICENSE.txt.
 HDR test photograph by Mishaal Rahman
 CC BY 4.0: assets/HDR-PHOTO-CREDIT.txt and assets/HDR-PHOTO-LICENSE.txt.
 
-XposedBridge / Xposed API
-Copyright 2013 rovo89, Tungstwenty.
+libxposed API 102.0.0
+Copyright libxposed contributors.
 Apache License 2.0: assets/APACHE-2.0.txt.
-https://github.com/rovo89/XposedBridge
-The API JAR is a compile-only dependency; no Xposed runtime is bundled.
+https://github.com/libxposed/api
+The API is a compile-only dependency; no Xposed runtime is bundled.
 
 System software and downloaded device-shell artwork
 Not distributed in this source repository or public release assets.

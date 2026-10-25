@@ -57,6 +57,14 @@ def installer(changed=False):
  assert r.returncode==(33 if changed else 0),(r.stdout,r.stderr)
 check('generated installer accepts corresponding current library',lambda:installer(False))
 check('generated installer rejects changed file as error',lambda:installer(True))
+def installer_recovery():
+ d,e=setup('install_recovery');e.update(MODPATH=str(d),KSU='false',BOOTMODE='true')
+ for marker in ['boot-pending','rollback.txt','disable','skip_mount','skip_mountify']:(d/marker).write_text('preserve')
+ script='abort() { echo "$*"; exit 33; }; set_perm_recursive() { :; }; set_perm() { :; }; ui_print() { :; }; . "$MODPATH/customize.sh"'
+ result=subprocess.run(['/bin/sh','-c',script],env=e,capture_output=True,text=True)
+ assert result.returncode==33 and 'boot-recovery' in result.stdout,(result.stdout,result.stderr)
+ for marker in ['boot-pending','rollback.txt','disable','skip_mount','skip_mountify']:assert (d/marker).read_text()=='preserve'
+check('installer preserves unexpected recovery state and refuses to bypass it',installer_recovery)
 for target_path in ['/system/lib64/libsurfaceflinger.so','/system/lib/libsurfaceflinger.so','/vendor/lib64/libsurfaceflinger.so','/product/lib64/libsurfaceflinger.so','/system/system_ext/lib64/libsurfaceflinger.so']:
  def relocated(target_path=target_path):
   d,e=setup('relocated-'+target_path.strip('/').replace('/','_'),target_path=target_path)

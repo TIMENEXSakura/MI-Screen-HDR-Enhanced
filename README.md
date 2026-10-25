@@ -4,12 +4,12 @@
 
 ## 下载与安装
 
-从 [Releases](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/releases) 下载 APK，在 LSPosed 中启用模块，作用域选择 **小米截屏（`com.miui.screenshot`）**。
+从 [Releases](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/releases) 下载 APK，在支持 **libxposed API 102** 的 LSPosed 中启用模块，作用域选择 **小米截屏（`com.miui.screenshot`）**。
 
 需要底层修复时，在应用设置中授予 Root 权限，然后选择：
 
 - **生成挂载模块**：读取当前设备的库并生成 Magisk / KernelSU / APatch ZIP，保存到当前用户的 `Download/MI-Screen-HDR-Enhanced`。
-- **生成并安装挂载模块**：生成后调用 Root 管理器安装。
+- **生成并安装挂载模块**：生成后调用当前 Root 管理器安装并自动启用；重启后挂载、验证底层库。
 
 公开发布包不携带完整系统 SO；挂载模块由 APK 在设备上生成。不要给其他设备安装别人生成的挂载 ZIP。
 
@@ -24,6 +24,20 @@
 - 内置 Ultra HDR 照片、1× / 2× / 4× 亮度阶梯及截图增益检查。
 - APK 按实际库指令生成底层补丁，不按机型名称限制；匹配失败、指令歧义和文件损坏会报错退出。
 - 生成的挂载模块包含原库备份、启动监测和错误回退。
+
+## 1.4.6-dev：功能定位、安装后启用与 API 102
+
+此开发版基于最新上游 Release [v1.4.5](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/releases/tag/v1.4.5)（`2e31b93d40db188da23b8b045021c0b8c5926524`），尚未发布到上游。
+
+底层生成器先通过 ELF 符号定位 `SurfaceFlinger::renderScreenImpl`，再解析返回值测试、亮度比较、最小值选择、写入字段及各分支汇合关系。寄存器、结构体字段、虚表槽位和跳转距离取自当前库；通过可执行 `PT_LOAD` 映射将虚拟地址换算为文件偏移，只改确认的 4 字节条件分支。允许寄存器分配、字段位置、函数位置和 NOP 布局变化；不再匹配整段固定机器码。缺少函数符号、指令实现不支持或匹配不唯一时拒绝生成，原文件和已有输出不变。该识别器有明确支持范围，不代表任意编译器改写或所有固件都已兼容。
+
+原生 HDR Hook 从已加载的 `libgui.so` 解析 `SurfaceComposerClient::setMiHdrInfoFlags(int,int)`，校验库唯一性、符号入口和可执行段，不再使用固定路径、固件哈希或固定 RVA。移除跨进程按固定地址修改 SurfaceFlinger 布尔缓存的路径，开关由启动脚本设置并在重启后读取。
+
+“生成并安装”在安装器成功返回后，校验本次生成标识与落盘模块一致，再使用 Magisk 状态标记或 KernelSU/APatch 的 `module enable` 启用并复查。安装或启用失败会显示具体阶段；原库备份、启动回退记录和挂载提供者标记继续保留。自动启用不等于当前进程已经换库，仍需重启。
+
+Java Hook 已迁移为 `XposedModule`、`onPackageReady` 和 API 102 拦截链，入口与作用域位于 `META-INF/xposed`，移除旧 API 82 JAR 和旧接口调用。要求支持 API 102 的框架；原生 Hook 尚无完整卸载生命周期，因此不启用热重载。JPEG 部分写入失败继续传播，避免框架异常回退向半成品追加另一个 JPEG。
+
+验证方法与当前限制见 [开发版验证记录](tests/VALIDATION-v1.4.6-dev.txt)。
 
 ## 1.4.5：HDR 预览与处理提速
 
@@ -69,7 +83,7 @@ Mountify 手动模式未选中本模块或挂载已关闭时会给出具体原�
 
 已验证环境：小米 17 Ultra（nezha），HyperOS OS4.0.4.0.XPACNXM，Android 17 / SDK 37；小米截屏 RELEASE-1.6.3.41-09181700（10603041）。
 
-**底层补丁生成不检查机型，并不代表全部 Hook 已兼容所有固件。** 当前截图应用类名和原生 HDR 开关仍有版本依赖，原生固定位置使用库哈希和指令校验。未知版本会跳过对应 Hook。
+**底层补丁生成不检查机型，并不代表全部 Hook 已兼容所有固件。** 当前截图应用类名仍有版本依赖，原生 HDR 开关要求可验证的功能符号；底层补丁要求受支持的函数指令语义。未知实现会跳过对应 Hook 或拒绝生成。
 
 此前版本的截图、编辑、带壳和连续截图经过上述设备验证。1.4.5 完成图像算法、编码与窗口生命周期测试，新增预览的屏幕观感和完整连续截屏测试待用户验证。启动恢复逻辑通过模拟测试，但尚未做真实故障和冷启动恢复验证。像素增益优化属于可选实验功能，默认关闭。
 
@@ -95,6 +109,12 @@ bash build.sh
 
 SO 在 APK 中需保持不压缩并按 16 KB 对齐，供 LSPosed 直接加载。
 
+## GitHub 云端测试构建
+
+`.github/workflows/android-test.yml` 在 `fix/semantic-library-resolution` 测试分支推送时运行，也支持手动触发。云端安装固定版本 SDK/NDK，运行定位、安装回退及 API 102 测试，编译 Release APK，并校验现代模块入口、原生库架构和 16 KB 对齐。Actions Artifact 保存未签名 APK、对应提交的源码 ZIP、校验值和构建报告，保留 14 天。
+
+云端不持有签名私钥。维护者下载云端 APK 后在本机签名，再交给测试者安装。本工作流不创建 Release；正式发布等待设备测试完成后的明确决定。
+
 ## 测试与回退
 
 运行不接触真实系统的路径定位、指令匹配与恢复逻辑测试（需要 JDK、Python 3 和 C 编译器）：
@@ -102,6 +122,7 @@ SO 在 APK 中需保持不压缩并按 16 KB 对齐，供 LSPosed 直接加载�
 ```sh
 python3 tests/test_mount_recovery.py
 python3 tests/test_patch_probe.py
+python3 tests/test_loaded_symbol.py
 mkdir -p build/locator-tests
 javac -d build/locator-tests src/dev/local/miuihdr/LibraryLocator.java tests/LibraryLocatorTest.java
 java -cp build/locator-tests dev.local.miuihdr.LibraryLocatorTest
@@ -109,6 +130,8 @@ mkdir -p build/installer-tests
 javac -d build/installer-tests src/dev/local/miuihdr/RootInstaller.java tests/RootInstallerTest.java
 java -cp build/installer-tests dev.local.miuihdr.RootInstallerTest
 ```
+
+API 102 拦截链测试还需要 Android SDK 和已解析的官方 API 依赖；先完成 Gradle 编译，再运行 `ANDROID_HOME=/path/to/sdk python3 tests/test_libxposed_hooks.py`。可通过 `HDR_PATCH_SAMPLE=/path/to/libsurfaceflinger.so python3 tests/test_patch_probe.py` 对自己的真实库进行只读输入测试，所有修改和还原都写入临时副本。
 
 `tests/ShellTest.java` 和 `tests/HdrInspect.java` 用于设备侧验证。带壳测试需自行提供对应的小米截图 APK 和机壳素材，仓库不分发这些文件。
 

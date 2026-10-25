@@ -1,3 +1,4 @@
+#include "loaded_symbol.h"
 #include <jni.h>
 #include <android/bitmap.h>
 #include <android/log.h>
@@ -5,6 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <pthread.h>
 #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"MiuiHdrNative",__VA_ARGS__)
 typedef int (*HookFn)(void *,void *,void **);
 typedef void (*LoadedFn)(const char *,void *);
@@ -12,6 +14,8 @@ typedef struct {uint32_t version;HookFn hook_func;int (*unhook_func)(void *);} N
 static HookFn hook_func;
 static int (*original_flags)(int,int);
 static atomic_int installed=0;
+static pthread_mutex_t installing=PTHREAD_MUTEX_INITIALIZER;
+static void *gate_library;
 static int keep_hdr(int flags,int mask){
  if((mask&0x1000000)&&(flags&0x1000000)){flags&=~0x1000000;LOG("Native HDR gate intercepted; mask=0x%x",mask);}
  return original_flags(flags,mask);
@@ -22,16 +26,18 @@ __attribute__((visibility("default"),used)) LoadedFn native_init(const NativeAPI
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm,void *unused){LOG("SO loaded in screenshot process");return JNI_VERSION_1_6;}
 JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_installGate(JNIEnv *env,jclass clazz){
  if(atomic_load(&installed))return 1;if(!hook_func)return -1;
- FILE *f=fopen("/proc/self/maps","re");if(!f)return -2;char line[2048];uintptr_t base=0;
- while(fgets(line,sizeof(line),f)){unsigned long start,end,off;char perm[8];if(strstr(line,"/system/lib64/libgui.so")&&sscanf(line,"%lx-%lx %7s %lx",&start,&end,perm,&off)==4&&off==0){base=start;break;}}fclose(f);
- if(!base)return -3;
- // Exact file SHA-256 is checked by NativeBridge before entering here.
- unsigned char expected[]={0x3f,0x23,0x03,0xd5,0xff,0x03,0x01,0xd1,0xfd,0x7b,0x02,0xa9,0xf4,0x4f,0x03,0xa9};
- void *target=(void *)(base+0x1bc238);
- if(memcmp(target,expected,sizeof(expected)))return -4;
- int result=hook_func(target,(void *)keep_hdr,(void **)&original_flags);
- if(result==0&&original_flags){atomic_store(&installed,1);LOG("Installed native SurfaceComposerClient HDR hook");return 1;}
- LOG("Native hook failed result=%d",result);return -5;
+ if(pthread_mutex_trylock(&installing))return -6;
+ if(atomic_load(&installed)){pthread_mutex_unlock(&installing);return 1;}
+ // Static SurfaceComposerClient::setMiHdrInfoFlags(int flags, int mask).
+ // The exact C++ symbol identifies the supported API; no offset/prologue or
+ // firmware hash is used as a substitute when that API is unavailable.
+ HdrLoadedFunction target;
+ int result=hdr_resolve_loaded_function("libgui.so","_ZN7android21SurfaceComposerClient17setMiHdrInfoFlagsEii",&target);
+ if(result){LOG("Native gate skipped: %s (%d)",hdr_symbol_error(result),result);pthread_mutex_unlock(&installing);return result;}
+ if((uintptr_t)target.address&3){dlclose(target.handle);pthread_mutex_unlock(&installing);return HDR_SYMBOL_WRONG_ENTRY;}
+ result=hook_func(target.address,(void *)keep_hdr,(void **)&original_flags);
+ if(result==0&&original_flags){gate_library=target.handle;atomic_store(&installed,1);LOG("Installed native HDR hook: library=%s symbol=setMiHdrInfoFlags(int,int) offset=0x%lx",target.path,(unsigned long)target.offset);pthread_mutex_unlock(&installing);return 1;}
+ dlclose(target.handle);LOG("Native hook failed result=%d",result);pthread_mutex_unlock(&installing);return -5;
 }
 JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_firstSignal(JNIEnv *env,jclass clazz,jobject bitmap){
  AndroidBitmapInfo info;void *pixels=NULL;

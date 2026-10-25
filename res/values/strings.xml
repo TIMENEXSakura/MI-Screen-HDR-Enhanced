@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">MI Screen HDR Enhanced</string>
+    <string name="module_description">小米原生截图 HDR 捕获与缩略图提示；不替换系统 APK。</string>
 </resources>

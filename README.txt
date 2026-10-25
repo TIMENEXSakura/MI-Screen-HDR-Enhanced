@@ -1,11 +1,11 @@
-小米截屏HDR增强 / MI Screen HDR Enhanced 1.4.5
+小米截屏HDR增强 / MI Screen HDR Enhanced 1.4.6-dev（基于上游 v1.4.5）
 
 本机适配
 小米 17 Ultra / nezha，HyperOS OS4.0.4.0.XPACNXM，Android 17（SDK 37）。
 小米截屏：com.miui.screenshot，RELEASE-1.6.3.41-09181700 / 10603041。
-安装 APK 后在 LSPosed 启用模块，仅勾选“小米截屏”。不替换系统 APK。
-设置页“生成挂载模块”会读取本机库并生成对应 Magisk/KernelSU/APatch ZIP；“生成并安装挂载模块”会进一步安装。两者都需要本应用 Root 权限。
-生成文件位于当前 Android 用户的 Download/MI-Screen-HDR-Enhanced/MI-Screen-HDR-Enhanced-mount-1.4.5.zip。
+安装 APK 后在支持 libxposed API 102 的 LSPosed 启用模块，仅勾选“小米截屏”。不替换系统 APK。
+设置页“生成挂载模块”会读取本机库并生成对应 Magisk/KernelSU/APatch ZIP；“生成并安装挂载模块”会进一步安装并启用，重启后自动挂载和验证。两者都需要本应用 Root 权限。
+生成文件位于当前 Android 用户的 Download/MI-Screen-HDR-Enhanced/MI-Screen-HDR-Enhanced-mount-1.4.6-dev.zip。
 
 功能
 - LSPosed native_init 注入 libmiuihdr.so，拦截截屏进程暂时关闭 HDR 的调用。
@@ -31,9 +31,9 @@ UI 框架：Google / AndroidX Jetpack Compose Material 3，Apache-2.0。
 
 重要适用范围
 已移植用户提供的 xiaomi17u_hdr_clamp_test 底层修复工作方式，由 APK 对本机实际库生成对应挂载 ZIP，复用原模块 ID 升级。APK 不携带固定系统 SO。
-底层生成不检查机型名称或预设固件哈希；按实际指令序列生成补丁，不适配/歧义/损坏作为错误退出。安装、启动时的校验来自本次生成的文件记录。
+底层生成不检查机型名称或预设固件哈希；先按函数符号定位，再校验控制流和数据关系、计算当前文件偏移生成补丁，不适配/歧义/损坏作为错误退出。安装、启动时的校验来自本次生成的文件记录。
 原库备份、未完成启动标记和启动监测提供错误回退；无法保证脚本运行前发生的故障即时恢复。详见 root-payload/README.txt。
-模块针对这份固件和小米截屏版本。SO 的固定位置有系统库 SHA-256 和指令校验。
+截图类名仍依赖当前小米截屏版本。原生 Hook 动态解析已加载库的完整功能符号，不使用固件 SHA 或固定位置；未知符号或不支持的指令实现会拒绝修改。
 壳合成支持当前截屏的 SDR 基图 + 增益图，以及 sRGB / Display P3。不同增益计算原色或 HDR 基图方向暂不改写，并记录跳过原因。
 无法从已丢失 HDR 数据的 SDR 截图恢复原始高光，也不保证每个平台或受保护画面都能捕获。
 
@@ -67,3 +67,9 @@ NativeProbeEntry 在原本非导出的 TakeScreenshotService 中处理 dev.local
 
 JPEG 编码：libjpeg-turbo 3.1.2。许可位于 assets/licenses。
 This software is based in part on the work of the Independent JPEG Group.
+
+1.4.6-dev 迁移与验证
+完整迁移 libxposed API 102，移除旧 82 接口；需要支持 API 102 的 LSPosed。当前原生 Hook 不支持热重载，修改后需重启截屏进程。
+底层按 ELF 函数符号和 AArch64 控制/数据流定位，寄存器、结构体偏移及跳转距离从当前库推导。缺符号、不支持实现、歧义和损坏均退出。
+安装成功后校验本次生成标识再自动启用；保持启动回退和挂载器标记，冷启动后才能确认底层覆盖生效。移除运行中按固定地址写布尔缓存的功能。
+详见 tests/VALIDATION-v1.4.6-dev.txt。

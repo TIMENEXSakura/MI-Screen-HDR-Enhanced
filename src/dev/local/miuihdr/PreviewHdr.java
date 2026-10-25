@@ -67,8 +67,8 @@ final class PreviewHdr implements View.OnAttachStateChangeListener {
    root=new WeakReference<>(view);WINDOWS.put(view,this);
    ((WindowManager)view.getContext().getSystemService("window")).updateViewLayout(view,next);
    changed=true;view.invalidate();
-   MiuiHook.log("HDR image preview enabled headroom="+ratio+" directDraw=true");
-  }catch(Throwable t){WINDOWS.remove(view);MiuiHook.log("HDR preview window unavailable; original display retained: "+t);}
+   HdrLog.log("HDR image preview enabled headroom="+ratio+" directDraw=true");
+  }catch(Throwable t){WINDOWS.remove(view);HdrLog.log("HDR preview window unavailable; original display retained: "+t);}
  }
  private void restore(){
   View view=root.get();if(view!=null)WINDOWS.remove(view);if(!changed||view==null)return;
@@ -79,7 +79,7 @@ final class PreviewHdr implements View.OnAttachStateChangeListener {
     if(view.isAttachedToWindow())((WindowManager)view.getContext().getSystemService("window")).updateViewLayout(view,next);
     else view.setLayoutParams(next);
    }
-  }catch(Throwable t){MiuiHook.log("HDR preview window restore skipped: "+t);}
+  }catch(Throwable t){HdrLog.log("HDR preview window restore skipped: "+t);}
   changed=false;
  }
  public void onViewAttachedToWindow(View view){enable(view.getRootView());}

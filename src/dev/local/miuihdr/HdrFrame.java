@@ -25,7 +25,7 @@ final class HdrFrame extends Drawable implements View.OnAttachStateChangeListene
   // RenderThread may still reference the previous display list: let bitmap lifetime follow GC.
   old.colorWheel=null;
  }
- static void attach(ImageView v,HookConfig config,float ratio){clear(v);HdrFrame f=new HdrFrame(v,config,ratio);FRAMES.put(v,f);v.addOnAttachStateChangeListener(f);v.setContentDescription("HDR 截图预览");View r=v.getRootView();f.setBounds(0,0,r.getWidth(),r.getHeight());r.getOverlay().add(f);r.invalidate();MiuiHook.log("HDR bloom attached glow="+config.glow+" hdrGlow="+config.hdrGlow+" badge="+config.badge);}
+ static void attach(ImageView v,HookConfig config,float ratio){clear(v);HdrFrame f=new HdrFrame(v,config,ratio);FRAMES.put(v,f);v.addOnAttachStateChangeListener(f);v.setContentDescription("HDR 截图预览");View r=v.getRootView();f.setBounds(0,0,r.getWidth(),r.getHeight());r.getOverlay().add(f);r.invalidate();HdrLog.log("HDR bloom attached glow="+config.glow+" hdrGlow="+config.hdrGlow+" badge="+config.badge);}
  private void createBloom(){
   // A small reusable HDR color field; geometry and bloom are evaluated on the
   // GPU each frame, including the full-screen-to-thumbnail transition.
@@ -33,7 +33,7 @@ final class HdrFrame extends Drawable implements View.OnAttachStateChangeListene
   Paint colors=new Paint(Paint.ANTI_ALIAS_FLAG);colors.setShader(new SweepGradient(wheelSize/2f,wheelSize/2f,new int[]{0xff61dfff,0xffa18aff,0xffff83ba,0xffffb882,0xffa18aff,0xff61dfff},null));new Canvas(colorWheel).drawPaint(colors);
   if(hdrGlow){Bitmap gain=Bitmap.createBitmap(1,1,Bitmap.Config.ARGB_8888);gain.eraseColor(Color.WHITE);Gainmap gm=new Gainmap(gain);float boost=Math.min(2.4f,ratio);gm.setRatioMin(1,1,1);gm.setRatioMax(boost,boost,boost);gm.setGamma(1,1,1);gm.setEpsilonSdr(0,0,0);gm.setEpsilonHdr(0,0,0);gm.setMinDisplayRatioForHdrTransition(1);gm.setDisplayRatioForFullHdr(boost);colorWheel.setGainmap(gm);}
   maskPaint.setShader(mask);maskPaint.setBlendMode(BlendMode.DST_IN);
-  MiuiHook.log("Bloom color field hasGainmap="+colorWheel.hasGainmap()+" boost="+(hdrGlow?Math.min(2.4f,ratio):1)+" flowing="+animate+" realtimeGeometry=true");
+  HdrLog.log("Bloom color field hasGainmap="+colorWheel.hasGainmap()+" boost="+(hdrGlow?Math.min(2.4f,ratio):1)+" flowing="+animate+" realtimeGeometry=true");
  }
  @Override public void draw(Canvas canvas){ImageView v=host.get();View r=root.get();if(v==null||r==null||!v.isAttachedToWindow())return;
   transform.reset();v.transformMatrixToGlobal(transform);r.transformMatrixToLocal(transform);rect.set(0,0,v.getWidth(),v.getHeight());transform.mapRect(rect);
@@ -52,9 +52,9 @@ final class HdrFrame extends Drawable implements View.OnAttachStateChangeListene
   }
   if(badge){paint.setShader(null);paint.setStyle(Paint.Style.FILL);paint.setTextSize(10*density);float tw=paint.measureText("HDR"),bw=tw+12*density,bh=19*density,x=rect.right-bw-8*density,y=rect.top+8*density;destination.set(x,y,x+bw,y+bh);paint.setColor(0xe61b2639);paint.setAlpha(225*effectiveOpacity/255);canvas.drawRoundRect(destination,5*density,5*density,paint);paint.setColor(0xffddf8ff);paint.setAlpha(effectiveOpacity);canvas.drawText("HDR",x+6*density,y+(bh-paint.ascent()-paint.descent())/2,paint);}
  }
- static void beforeCapture(){final CountDownLatch cleared=new CountDownLatch(1);Runnable work=()->{try{boolean any=!FRAMES.isEmpty();for(ImageView v:new ArrayList<ImageView>(FRAMES.keySet()))if(v!=null)clear(v);PreviewHdr.clearAll();if(any)MiuiHook.log("Previous HDR bloom removed before capture");}finally{cleared.countDown();}};
+ static void beforeCapture(){final CountDownLatch cleared=new CountDownLatch(1);Runnable work=()->{try{boolean any=!FRAMES.isEmpty();for(ImageView v:new ArrayList<ImageView>(FRAMES.keySet()))if(v!=null)clear(v);PreviewHdr.clearAll();if(any)HdrLog.log("Previous HDR bloom removed before capture");}finally{cleared.countDown();}};
   if(Looper.myLooper()==Looper.getMainLooper()){work.run();return;}
-  new Handler(Looper.getMainLooper()).post(work);try{if(!cleared.await(400,TimeUnit.MILLISECONDS))MiuiHook.log("Preview clear delayed; capture layer exclusion remains active");}catch(InterruptedException e){Thread.currentThread().interrupt();}
+  new Handler(Looper.getMainLooper()).post(work);try{if(!cleared.await(400,TimeUnit.MILLISECONDS))HdrLog.log("Preview clear delayed; capture layer exclusion remains active");}catch(InterruptedException e){Thread.currentThread().interrupt();}
  }
  @Override public void setAlpha(int a){opacity=a;invalidateSelf();}@Override public void setColorFilter(ColorFilter f){}@Override public int getOpacity(){return PixelFormat.TRANSLUCENT;}
  public void onViewAttachedToWindow(View v){}public void onViewDetachedFromWindow(View v){if(v instanceof ImageView)clear((ImageView)v);}

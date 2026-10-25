@@ -21,7 +21,7 @@ final class HdrSignal {
      if(map.getConfig()==Bitmap.Config.HARDWARE){own=map.copy(Bitmap.Config.ARGB_8888,false);map=own;}
      if(map!=null){
       int w=map.getWidth(),h=map.getHeight(),peak=-1;
-      if(NativeBridge.loaded)try{peak=NativeBridge.firstSignal(map);}catch(Throwable t){MiuiHook.log("Native signal fallback: "+t);}
+      if(NativeBridge.loaded)try{peak=NativeBridge.firstSignal(map);}catch(Throwable t){HdrLog.log("Native signal fallback: "+t);}
       if(peak<0){peak=0;int[] row=new int[w];
       search:for(int y=0;y<h;y++){
        map.getPixels(row,0,w,0,y,w,1);
@@ -34,7 +34,7 @@ final class HdrSignal {
      }
     }
    }
-  }catch(Throwable t){MiuiHook.log("HDR inspection failed: "+t);}
+  }catch(Throwable t){HdrLog.log("HDR inspection failed: "+t);}
   finally{if(own!=null)own.recycle();}
   synchronized(CACHE){CACHE.put(b,result);}return result;
  }

@@ -38,17 +38,24 @@ final class LibraryLocator {
         if (target.matches("/(system_ext|product|vendor)/(lib|lib64)/.+")) return "system"+target;
         return null; // APEX / ODM / arbitrary loaded paths are reported, not silently mis-mounted.
     }
+    static boolean libraryPath(String path) {
+        return path.startsWith("/") && path.substring(path.lastIndexOf('/')+1).startsWith("lib") && path.endsWith(".so");
+    }
+    static boolean plausibleName(String name) {
+        String n=name.toLowerCase(Locale.ROOT);
+        return n.endsWith(".so") && (n.contains("flinger") || n.contains("surface") || n.contains("renderengine") || n.contains("composer") || n.equals("libgui.so"));
+    }
     static List<String> mappedPaths(String maps) {
         List<String> paths=new ArrayList<>();
         for(String line:maps.split("\n")) {
             String[] fields=line.trim().split("\\s+",6);
-            if(fields.length==6 && (fields[5].endsWith("/"+NAME) || fields[5].endsWith("/"+NAME+" (deleted)"))) paths.add(fields[5]);
+            if(fields.length==6 && (libraryPath(fields[5]) || fields[5].endsWith(".so (deleted)"))) paths.add(fields[5]);
         }
         return paths;
     }
     void add(String path, boolean loaded) {
         if(path.endsWith(" (deleted)")) {loadedUnavailable|=loaded;diagnostics.add("LOADED_FILE_DELETED "+path);return;}
-        if(!path.startsWith("/") || !path.endsWith("/"+NAME)) return;
+        if(!libraryPath(path)) return;
         Path file=at(path);
         if(!Files.isRegularFile(file) || !Files.isReadable(file)) {
             if(loaded) {loadedUnavailable=true;diagnostics.add("LOADED_FILE_UNREADABLE "+path);}
@@ -81,7 +88,7 @@ final class LibraryLocator {
                 Iterator<Path> it=walk.iterator();int count=0;
                 while(it.hasNext()) {
                     Path p=it.next();if(++count>30000)throw new IOException("library directory exceeds scan limit");
-                    if(NAME.equals(String.valueOf(p.getFileName())))add("/"+root.relativize(dir.resolve(realDir.relativize(p))).toString(),false);
+                    if(plausibleName(String.valueOf(p.getFileName())))add("/"+root.relativize(dir.resolve(realDir.relativize(p))).toString(),false);
                 }
             }
         } catch(IOException|UncheckedIOException e) {diagnostics.add("SCAN_ERROR "+path+": "+e.getMessage());}
@@ -100,7 +107,7 @@ final class LibraryLocator {
     }
     Candidate select(Probe probe) throws Exception {
         if(loadedUnavailable)throw new IOException("LOADED_LIBRARY_UNAVAILABLE: 已加载库不可读或已被替换，保留原库");
-        if(candidates.isEmpty())throw new IOException("LIBRARY_NOT_FOUND: 常见系统目录及已加载映射中没有找到 "+NAME);
+        if(candidates.isEmpty())throw new IOException("LIBRARY_NOT_FOUND: 常见系统目录及已加载映射中没有找到显示运行库");
         boolean hasLoaded=false;for(Candidate c:candidates)hasLoaded|=c.loaded;
         List<Candidate> matches=new ArrayList<>();List<String> errors=new ArrayList<>();
         for(Candidate c:candidates) {
@@ -113,6 +120,6 @@ final class LibraryLocator {
         }
         if(matches.size()==1)return matches.get(0);
         if(matches.size()>1)throw new IOException("LIBRARY_AMBIGUOUS: 多个库匹配，无法唯一确认挂载目标；保留原库");
-        throw new IOException("LIBRARY_UNSUPPORTED: 找到了运行库，但不能生成对应补丁\n"+String.join("\n",errors));
+        throw new IOException("LIBRARY_UNSUPPORTED: 找到了运行库，但不能生成对应补丁\n"+String.join("\n",errors.subList(0,Math.min(12,errors.size())))+(errors.size()>12?"\n其余候选见定位报告":""));
     }
 }

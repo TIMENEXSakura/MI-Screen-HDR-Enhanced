@@ -33,13 +33,18 @@ public final class LibraryLocatorTest {
   check(LibraryLocator.payloadFor("/system/lib64/../../data/libsurfaceflinger.so")==null,"reject traversal");
   check(LibraryLocator.payloadFor("/system/lib64/$(touch bad)/libsurfaceflinger.so")==null,"reject shell characters");
   List<String> paths=LibraryLocator.mappedPaths("123-456 r-xp 0000 01:23 1 /system/lib64/libsurfaceflinger.so\n456-789 r-xp 0000 01:23 2 /system/lib64/libsurfaceflinger_common_shared.so\n789-aaa r--p 0000 01:23 3 /system/lib64/libsurfaceflinger.so (deleted)\n");
-  check(paths.size()==2&&paths.get(1).endsWith(" (deleted)"),"parse only the requested library from process maps");
+  check(paths.size()==3&&paths.get(2).endsWith(" (deleted)"),"parse all loaded SO candidates including alternate owners");
   root=root();put(root,"/system_root/system/lib64/libsurfaceflinger.so","match");Files.createSymbolicLink(root.resolve("system"),Path.of("system_root/system"));
   l=new LibraryLocator(root);l.discover(List.of("/system_root/system/lib64/libsurfaceflinger.so"));
   check(l.select(probe).target.equals("/system/lib64/libsurfaceflinger.so"),"use mountable system alias for system-as-root layout");
   root=root();put(root,"/system_root/system/lib64/libsurfaceflinger.so","match");Files.createDirectories(root.resolve("system"));Files.createSymbolicLink(root.resolve("system/lib64"),Path.of("../system_root/system/lib64"));
   l=new LibraryLocator(root);l.discover(Collections.emptyList());
   check(l.select(probe).target.equals("/system/lib64/libsurfaceflinger.so"),"scan a symlinked library directory and retain its mountable alias");
+  root=root();put(root,"/vendor/lib64/libvendor_render_impl.so","match");put(root,"/system/lib64/libsurfaceflinger.so","stale");
+  l=new LibraryLocator(root);l.discover(List.of("/vendor/lib64/libvendor_render_impl.so","/system/lib64/libsurfaceflinger.so"));
+  check(l.select(probe).target.endsWith("libvendor_render_impl.so"),"resolve implementation in a renamed loaded library");
+  root=root();put(root,"/system_ext/lib64/libmisurfaceflinger.so","match");l=new LibraryLocator(root);l.discover(Collections.emptyList());
+  check(l.select(probe).target.endsWith("libmisurfaceflinger.so"),"discover alternate Finger candidate without maps");
   System.out.println("ALL PASS "+passed);
  }
 }

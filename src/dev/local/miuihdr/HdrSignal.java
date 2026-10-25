@@ -9,6 +9,7 @@ final class HdrSignal {
   public String toString(){return "valid="+hdr+" ratio="+ratio+" signal="+peak;}
  }
  private static final WeakHashMap<Bitmap,Info> CACHE=new WeakHashMap<Bitmap,Info>();
+ static void invalidate(Bitmap b){synchronized(CACHE){CACHE.remove(b);}}
  static Info inspect(Bitmap b){
   if(b==null||b.isRecycled())return new Info(false,1,0);
   synchronized(CACHE){Info cached=CACHE.get(b);if(cached!=null)return cached;}

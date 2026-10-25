@@ -1,7 +1,7 @@
 -keep class dev.local.miuihdr.MiuiHook { *; }
 -keep class dev.local.miuihdr.NativeBridge { *; }
 -keep class dev.local.miuihdr.RootSetup { *; }
--keep class dev.local.miuihdr.NativeFlags { *; }
 -keep class dev.local.miuihdr.NativeProbeEntry { *; }
 -keepclassmembers class * { native <methods>; }
--dontwarn de.robv.android.xposed.**
+-dontwarn io.github.libxposed.annotation.**
+-keep class dev.local.miuihdr.ModuleEntry { public <init>(); *; }

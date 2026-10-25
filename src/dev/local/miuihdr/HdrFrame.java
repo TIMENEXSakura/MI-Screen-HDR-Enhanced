@@ -16,7 +16,7 @@ final class HdrFrame extends Drawable implements View.OnAttachStateChangeListene
  private final RectF rect=new RectF(),destination=new RectF();private final Matrix transform=new Matrix();
  private final CharSequence oldDescription;
  private final float density,ratio;private final boolean animate,glow,hdrGlow,badge;
- private Bitmap colorWheel;private long pulseStart;private int opacity=255;
+ private Bitmap colorWheel;private long pulseStart,badgeStart=-1;private int opacity=255;
  private final RectF wheelBounds=new RectF();
  private final Paint maskPaint=new Paint(Paint.ANTI_ALIAS_FLAG);
  private final RuntimeShader mask=new RuntimeShader("uniform float4 edge; uniform float radius; uniform float density; uniform float opacity; half4 main(float2 p) { float2 center=(edge.xy+edge.zw)*0.5; float2 extent=(edge.zw-edge.xy)*0.5; float r=min(radius,min(extent.x,extent.y)); float2 q=abs(p-center)-(extent-float2(r)); float d=length(max(q,float2(0)))+min(max(q.x,q.y),0.0)-r; float u=max(d,0.0)/density; float core=1.0-smoothstep(0.3,1.9,u); float halo=0.40*exp(-u*u/98.0)+0.48*exp(-u*u/12.5); float a=clamp(max(core,halo),0.0,1.0)*smoothstep(-0.7,0.7,d+0.35*density)*opacity; return half4(a); }");
@@ -26,6 +26,10 @@ final class HdrFrame extends Drawable implements View.OnAttachStateChangeListene
   old.colorWheel=null;
  }
  static void attach(ImageView v,HookConfig config,float ratio){clear(v);HdrFrame f=new HdrFrame(v,config,ratio);FRAMES.put(v,f);v.addOnAttachStateChangeListener(f);v.setContentDescription("HDR 截图预览");View r=v.getRootView();f.setBounds(0,0,r.getWidth(),r.getHeight());r.getOverlay().add(f);r.invalidate();MiuiHook.log("HDR bloom attached glow="+config.glow+" hdrGlow="+config.hdrGlow+" badge="+config.badge);}
+ static HdrFrame current(ImageView view){return FRAMES.get(view);}
+ static void thumbnailReady(ImageView view,HdrFrame expected){
+  if(expected!=null&&FRAMES.get(view)==expected&&expected.badgeStart<0){expected.badgeStart=SystemClock.uptimeMillis();view.getRootView().invalidate();}
+ }
  private void createBloom(){
   // A small reusable HDR color field; geometry and bloom are evaluated on the
   // GPU each frame, including the full-screen-to-thumbnail transition.
@@ -50,9 +54,9 @@ final class HdrFrame extends Drawable implements View.OnAttachStateChangeListene
    wheelBounds.set(cx-half,cy-half,cx+half,cy+half);int rotated=canvas.save();if(animate)canvas.rotate((elapsed%3600)*0.1f,cx,cy);paint.setAlpha(255);canvas.drawBitmap(colorWheel,null,wheelBounds,paint);canvas.restoreToCount(rotated);
    float pulse=animate?0.94f+0.06f*(float)Math.sin(Math.PI*elapsed/1100f):1;mask.setFloatUniform("edge",rect.left,rect.top,rect.right,rect.bottom);mask.setFloatUniform("radius",radius);mask.setFloatUniform("density",density);mask.setFloatUniform("opacity",effectiveOpacity*pulse/255f);canvas.drawPaint(maskPaint);canvas.restoreToCount(layer);
   }
-  if(badge){paint.setShader(null);paint.setStyle(Paint.Style.FILL);paint.setTextSize(10*density);float tw=paint.measureText("HDR"),bw=tw+12*density,bh=19*density,x=rect.right-bw-8*density,y=rect.top+8*density;destination.set(x,y,x+bw,y+bh);paint.setColor(0xe61b2639);paint.setAlpha(225*effectiveOpacity/255);canvas.drawRoundRect(destination,5*density,5*density,paint);paint.setColor(0xffddf8ff);paint.setAlpha(effectiveOpacity);canvas.drawText("HDR",x+6*density,y+(bh-paint.ascent()-paint.descent())/2,paint);}
+  if(badge&&badgeStart>=0){float fade=animate?Math.min(1,Math.max(0,(now-badgeStart)/300f)):1;fade=fade*fade*(3-2*fade);int badgeOpacity=Math.round(effectiveOpacity*fade);paint.setShader(null);paint.setStyle(Paint.Style.FILL);paint.setTextSize(10*density);float tw=paint.measureText("HDR"),bw=tw+12*density,bh=19*density,x=rect.right-bw-8*density,y=rect.top+8*density;destination.set(x,y,x+bw,y+bh);paint.setColor(0xe61b2639);paint.setAlpha(225*badgeOpacity/255);canvas.drawRoundRect(destination,5*density,5*density,paint);paint.setColor(0xffddf8ff);paint.setAlpha(badgeOpacity);canvas.drawText("HDR",x+6*density,y+(bh-paint.ascent()-paint.descent())/2,paint);}
  }
- static void beforeCapture(){final CountDownLatch cleared=new CountDownLatch(1);Runnable work=()->{try{boolean any=!FRAMES.isEmpty();for(ImageView v:new ArrayList<ImageView>(FRAMES.keySet()))if(v!=null)clear(v);PreviewHdr.clearAll();if(any)MiuiHook.log("Previous HDR bloom removed before capture");}finally{cleared.countDown();}};
+ static void beforeCapture(){final CountDownLatch cleared=new CountDownLatch(1);Runnable work=()->{try{boolean any=!FRAMES.isEmpty();for(ImageView v:new ArrayList<ImageView>(FRAMES.keySet()))if(v!=null)clear(v);PreviewHdr.clearTransient();if(any)MiuiHook.log("Previous HDR bloom removed before capture");}finally{cleared.countDown();}};
   if(Looper.myLooper()==Looper.getMainLooper()){work.run();return;}
   new Handler(Looper.getMainLooper()).post(work);try{if(!cleared.await(400,TimeUnit.MILLISECONDS))MiuiHook.log("Preview clear delayed; capture layer exclusion remains active");}catch(InterruptedException e){Thread.currentThread().interrupt();}
  }

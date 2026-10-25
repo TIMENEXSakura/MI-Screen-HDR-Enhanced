@@ -57,6 +57,19 @@ public final class PreviewHdrTest {
   root.attached=false;count=updates;PreviewHdr.bind(image,new HdrSignal.Info(true,4,255));
   check(updates==count,"detached view does not update window");PreviewHdr.clear(image);
   check(!PreviewHdr.directDraw(image)&&image.getLayerType()==View.LAYER_TYPE_HARDWARE,"detached cleanup releases preview state");
+  root.attached=true;View editor=new View(context){public View getRootView(){return root;}public boolean isAttachedToWindow(){return root.attached;}};
+  editor.setLayerType(View.LAYER_TYPE_HARDWARE,null);PreviewHdr.bindEditor(editor,new HdrSignal.Info(true,4,255));
+  PreviewHdr.clearTransient();check(PreviewHdr.directDraw(editor)&&params(root).getColorMode()==ActivityInfo.COLOR_MODE_HDR,"editor HDR survives another screenshot's transient cleanup");
+  PreviewHdr.clear(editor);check(!PreviewHdr.directDraw(editor)&&editor.getLayerType()==View.LAYER_TYPE_HARDWARE,"editor detach restores layer and window");
+  WindowManager.LayoutParams before=params(root);
+  WindowManager.LayoutParams prepared=PreviewHdr.prepareEditor(root,before,new HdrSignal.Info(true,4,255));
+  check(prepared.getColorMode()==ActivityInfo.COLOR_MODE_HDR&&prepared.getDesiredHdrHeadroom()==4,"editor transition requests HDR before its first attached frame");
+  check(before.getColorMode()==ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT,"early preparation keeps original window attributes intact");
+  root.setLayoutParams(prepared);PreviewHdr.bindEditor(editor,new HdrSignal.Info(true,4,255));
+  check(params(root).getColorMode()==ActivityInfo.COLOR_MODE_HDR,"bitmap binding keeps the transition in HDR");
+  PreviewHdr.clear(editor);
+  check(params(root).getColorMode()==ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT&&params(root).getDesiredHdrHeadroom()==1.5f,"early transition still restores the pre-HDR baseline");
+  check(PreviewHdr.prepareEditor(root,before,new HdrSignal.Info(false,1,0))==before,"SDR transition does not request HDR");
   bitmap.recycle();System.out.println("PREVIEW_HDR_CHECKS="+passed);System.exit(0);
  }
 }

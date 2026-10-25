@@ -5,7 +5,7 @@ Google / AndroidX Jetpack Compose Material 3 and Gradle wrapper
 Apache License 2.0; see assets/APACHE-2.0.txt.
 
 SukiSU-Ultra
-Adapted theme and navigation code, GPL-3.0.
+Adapted home, install, log, about, theme and navigation code, GPL-3.0.
 Exact revision and source files: assets/UI-SOURCE.txt.
 
 MaterialKolor
@@ -14,10 +14,9 @@ MIT License: assets/MATERIALKOLOR-LICENSE.txt.
 HDR test photograph by Mishaal Rahman
 CC BY 4.0: assets/HDR-PHOTO-CREDIT.txt and assets/HDR-PHOTO-LICENSE.txt.
 
-XposedBridge / Xposed API
-Copyright 2013 rovo89, Tungstwenty.
+libxposed API 102
 Apache License 2.0: assets/APACHE-2.0.txt.
-https://github.com/rovo89/XposedBridge
+https://github.com/libxposed/api
 The API JAR is a compile-only dependency; no Xposed runtime is bundled.
 
 System software and downloaded device-shell artwork

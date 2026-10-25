@@ -6,7 +6,7 @@ hdr_load_target() {
  target=$(cat "$MODDIR/target.path")
  payload=$(cat "$MODDIR/payload.path")
  case "$target" in *[!A-Za-z0-9_./+@-]*|*'/../'*|*'/./'*|*'//'*) return 1;; esac
- case "$target" in */libsurfaceflinger.so) ;; *) return 1;; esac
+ case "$target" in */lib*.so) ;; *) return 1;; esac
  case "$target" in
   /system/lib/*|/system/lib64/*|/system/system_ext/lib/*|/system/system_ext/lib64/*|/system/product/lib/*|/system/product/lib64/*|/system/vendor/lib/*|/system/vendor/lib64/*) expected=${target#/};;
   /system_ext/lib/*|/system_ext/lib64/*|/product/lib/*|/product/lib64/*|/vendor/lib/*|/vendor/lib64/*) expected=system$target;;

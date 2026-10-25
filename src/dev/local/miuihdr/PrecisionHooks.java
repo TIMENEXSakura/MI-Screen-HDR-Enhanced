@@ -1,18 +1,18 @@
 package dev.local.miuihdr;
-import android.app.AndroidAppHelper;
+import dev.local.miuihdr.HookRuntime.Callback;
+import dev.local.miuihdr.HookRuntime.Call;
 import android.content.Context;
 import android.graphics.Bitmap;
 import java.io.OutputStream;
-import de.robv.android.xposed.*;
 
 /** Installed only inside Xiaomi's screenshot process. */
 final class PrecisionHooks {
  private static final ThreadLocal<Boolean> ENCODING=new ThreadLocal<>();
- static boolean enabled(){Context context=AndroidAppHelper.currentApplication();return context!=null&&HookConfig.read(context).precision;}
+ static boolean enabled(){Context context=HookObjects.currentApplication();return context!=null&&HookConfig.read(context).precision;}
  static Bitmap capture(Bitmap input){return input!=null&&input.hasGainmap()&&enabled()?GainmapPrecision.tryApply(input):input;}
  static void install()throws Exception{
-  XposedBridge.hookMethod(Bitmap.class.getDeclaredMethod("compress",Bitmap.CompressFormat.class,int.class,OutputStream.class),new XC_MethodHook(){
-   protected void beforeHookedMethod(MethodHookParam param){
+  HookRuntime.add(Bitmap.class.getDeclaredMethod("compress",Bitmap.CompressFormat.class,int.class,OutputStream.class),new Callback(){
+   protected void before(Call param){
     if(Boolean.TRUE.equals(ENCODING.get())||param.args[0]!=Bitmap.CompressFormat.JPEG)return;
     Bitmap b=(Bitmap)param.thisObject;if(b.isRecycled()||!b.hasGainmap()||!enabled())return;
     byte[] candidate;

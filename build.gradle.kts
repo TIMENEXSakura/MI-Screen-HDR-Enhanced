@@ -6,8 +6,8 @@ android {
  namespace = "dev.local.miuihdr"
  compileSdk = 37
  buildToolsVersion = "37.0.0"
- defaultConfig { applicationId = "dev.local.miuihdr"; minSdk = 34; targetSdk = 36; versionCode = 10; versionName = "1.4.5"; ndk { abiFilters += "arm64-v8a" } }
- sourceSets.getByName("main") { manifest.srcFile("AndroidManifest.xml"); java.srcDirs("src"); res.srcDirs("res"); assets.srcDirs("assets"); jniLibs.srcDirs("lib") }
+ defaultConfig { applicationId = "dev.local.miuihdr"; minSdk = 34; targetSdk = 36; versionCode = 151; versionName = "1.5.1"; ndk { abiFilters += "arm64-v8a" } }
+ sourceSets.getByName("main") { manifest.srcFile("AndroidManifest.xml"); java.srcDirs("src"); res.srcDirs("res"); assets.srcDirs("assets"); jniLibs.srcDirs("lib"); resources.srcDirs("module-resources") }
  buildFeatures { compose = true }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
  buildTypes { getByName("release") { isMinifyEnabled = true; isShrinkResources = true; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") } }
@@ -15,7 +15,7 @@ android {
 }
 android.sourceSets.named("main") { kotlin.directories += "src" }
 dependencies {
- compileOnly(files("libs/xposed-api-82.jar"))
+ compileOnly("io.github.libxposed:api:102.0.0")
  implementation(platform("androidx.compose:compose-bom:2026.09.00"))
  implementation("androidx.activity:activity-compose:1.13.0")
  implementation("androidx.compose.material3:material3:1.5.0-alpha28")

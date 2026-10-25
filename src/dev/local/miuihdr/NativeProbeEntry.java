@@ -1,16 +1,25 @@
 package dev.local.miuihdr;
+import dev.local.miuihdr.HookRuntime.Callback;
+import dev.local.miuihdr.HookRuntime.Call;
 import android.app.Service;
 import android.content.Intent;
 import android.os.*;
-import de.robv.android.xposed.*;
 final class NativeProbeEntry {
  static final String ACTION="dev.local.miuihdr.ROOT_CAPTURE_TEST";
+ static final String STATUS="dev.local.miuihdr.ROOT_HOOK_STATUS";
  static void install()throws Exception{
-  XposedBridge.hookMethod(Service.class.getDeclaredMethod("onStartCommand",Intent.class,int.class,int.class),new XC_MethodHook(){
-   protected void afterHookedMethod(MethodHookParam p){
+  HookRuntime.add(Service.class.getDeclaredMethod("onStartCommand",Intent.class,int.class,int.class),new Callback(){
+   protected void after(Call p){
     final Service service=(Service)p.thisObject;Intent intent=(Intent)p.args[0];
     // The original service remains non-exported. Only root/system can start this entry.
-    if(!service.getClass().getName().equals("com.miui.screenshot.TakeScreenshotService")||intent==null||!ACTION.equals(intent.getAction()))return;
+    if(!service.getClass().getName().equals("com.miui.screenshot.TakeScreenshotService")||intent==null)return;
+    if(STATUS.equals(intent.getAction())){
+     try{java.nio.file.Files.writeString(new java.io.File(service.getCacheDir(),"mi-screen-hdr-status.txt").toPath(),
+      "version=1.5.1\napi="+HookRuntime.apiVersion()+"\nhooks="+HookRuntime.count()+"\nnativeLoaded="+NativeBridge.loaded+"\nnativeGate="+NativeBridge.gate+"\neditorPreview="+EditorPreviewHdr.lastPreview+"\nearlyHdrTransitions="+EditorPreviewHdr.earlyTransitions+"\n");}
+     catch(Throwable t){MiuiHook.log("Status report failed: "+t);}
+     return;
+    }
+    if(!ACTION.equals(intent.getAction()))return;
     new Handler(Looper.getMainLooper()).post(new Runnable(){public void run(){try{
      IBinder binder=service.onBind(new Intent());Message request=Message.obtain();request.what=1;
      request.replyTo=new Messenger(new Handler(Looper.getMainLooper()){

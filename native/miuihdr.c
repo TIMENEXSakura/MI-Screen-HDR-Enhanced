@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <dlfcn.h>
+#include <link.h>
 #define LOG(...) __android_log_print(ANDROID_LOG_INFO,"MiuiHdrNative",__VA_ARGS__)
 typedef int (*HookFn)(void *,void *,void **);
 typedef void (*LoadedFn)(const char *,void *);
@@ -16,23 +18,42 @@ static int keep_hdr(int flags,int mask){
  if((mask&0x1000000)&&(flags&0x1000000)){flags&=~0x1000000;LOG("Native HDR gate intercepted; mask=0x%x",mask);}
  return original_flags(flags,mask);
 }
+static const char gate_symbol[]="_ZN7android21SurfaceComposerClient17setMiHdrInfoFlagsEii";
+static atomic_flag resolving=ATOMIC_FLAG_INIT;
+struct target_check {void *address;int executable;};
+static int validate_target(struct dl_phdr_info *info,size_t size,void *opaque){
+ struct target_check *check=opaque;uintptr_t address=(uintptr_t)check->address;
+ for(int i=0;i<info->dlpi_phnum;i++){
+  const ElfW(Phdr) *ph=&info->dlpi_phdr[i];uintptr_t start=info->dlpi_addr+ph->p_vaddr;
+  if(ph->p_type==PT_LOAD&&(ph->p_flags&PF_X)&&address>=start&&address-start<ph->p_memsz){check->executable=1;return 1;}
+ }return 0;
+}
+static int find_gate(struct dl_phdr_info *info,size_t size,void *opaque){
+ if(!info->dlpi_name||!*info->dlpi_name)return 0;
+ void *handle=dlopen(info->dlpi_name,RTLD_NOW|RTLD_NOLOAD);if(!handle)return 0;
+ void *target=dlsym(handle,gate_symbol);dlclose(handle);
+ if(target){*(void **)opaque=target;return 1;}return 0;
+}
+static int install_gate(void *loaded){
+ if(atomic_load(&installed))return 1;if(!hook_func)return -1;
+ if(atomic_flag_test_and_set(&resolving))return -2;
+ void *target=dlsym(loaded?loaded:RTLD_DEFAULT,gate_symbol);
+ if(!target)dl_iterate_phdr(find_gate,&target);
+ int result=-3;struct target_check check={target,0};
+ if(target)dl_iterate_phdr(validate_target,&check);
+ if(check.executable){
+  int status=hook_func(target,(void *)keep_hdr,(void **)&original_flags);
+  if(status==0&&original_flags){atomic_store(&installed,1);result=1;Dl_info owner={0};dladdr(target,&owner);LOG("Native HDR gate resolved by ABI symbol in %s",owner.dli_fname?owner.dli_fname:"loaded ELF");}
+  else{result=-5;LOG("Native hook failed result=%d",status);}
+ }
+ atomic_flag_clear(&resolving);return result;
+}
+static void library_loaded(const char *name,void *handle){if(handle&&!atomic_load(&installed))install_gate(handle);}
 __attribute__((visibility("default"),used)) LoadedFn native_init(const NativeAPIEntries *api){
- if(api&&api->hook_func){hook_func=api->hook_func;LOG("LSPosed native API ready version=%u",api->version);}return NULL;
+ if(api&&api->hook_func){hook_func=api->hook_func;LOG("LSPosed native API ready version=%u",api->version);}return library_loaded;
 }
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm,void *unused){LOG("SO loaded in screenshot process");return JNI_VERSION_1_6;}
-JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_installGate(JNIEnv *env,jclass clazz){
- if(atomic_load(&installed))return 1;if(!hook_func)return -1;
- FILE *f=fopen("/proc/self/maps","re");if(!f)return -2;char line[2048];uintptr_t base=0;
- while(fgets(line,sizeof(line),f)){unsigned long start,end,off;char perm[8];if(strstr(line,"/system/lib64/libgui.so")&&sscanf(line,"%lx-%lx %7s %lx",&start,&end,perm,&off)==4&&off==0){base=start;break;}}fclose(f);
- if(!base)return -3;
- // Exact file SHA-256 is checked by NativeBridge before entering here.
- unsigned char expected[]={0x3f,0x23,0x03,0xd5,0xff,0x03,0x01,0xd1,0xfd,0x7b,0x02,0xa9,0xf4,0x4f,0x03,0xa9};
- void *target=(void *)(base+0x1bc238);
- if(memcmp(target,expected,sizeof(expected)))return -4;
- int result=hook_func(target,(void *)keep_hdr,(void **)&original_flags);
- if(result==0&&original_flags){atomic_store(&installed,1);LOG("Installed native SurfaceComposerClient HDR hook");return 1;}
- LOG("Native hook failed result=%d",result);return -5;
-}
+JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_installGate(JNIEnv *env,jclass clazz){return install_gate(NULL);}
 JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_firstSignal(JNIEnv *env,jclass clazz,jobject bitmap){
  AndroidBitmapInfo info;void *pixels=NULL;
  if(AndroidBitmap_getInfo(env,bitmap,&info)!=0)return -1;

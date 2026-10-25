@@ -10,6 +10,10 @@ SukiSU-Ultra, GPL-3.0, commit df84920b20a925fd1135530f6e403361ad494d7b:
 - manager/app/src/main/java/com/sukisu/ultra/ui/theme/Shape.kt
 - manager/app/src/main/java/com/sukisu/ultra/ui/theme/Type.kt
 - Adapted theme configuration and component/bottombar/BottomBarMaterial.kt navigation code.
+- Adapted screen/home/HomeMaterial.kt status hero, rings, tiles and information table.
+- Adapted screen/install/InstallMaterial.kt installation options, selection animation and next-step navigation.
+- Adapted screen/flash/FlashMaterial.kt log page layout and progress navigation.
+- Adapted screen/about/AboutMaterial.kt application hero and segmented link layout.
 https://github.com/SukiSU-Ultra/SukiSU-Ultra/tree/df84920b20a925fd1135530f6e403361ad494d7b/manager/app/src/main/java/com/sukisu/ultra/ui
 SukiSU is the source of these reused snippets. It is not the author of Material 3, AndroidX or Compose.
 This screenshot module is independent of SukiSU. Corresponding module source accompanies the APK.

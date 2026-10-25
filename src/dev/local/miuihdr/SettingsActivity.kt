@@ -53,14 +53,17 @@ import java.util.concurrent.TimeUnit
 /** UI framework: Google / AndroidX Jetpack Compose Material 3 Expressive. */
 class SettingsActivity : ComponentActivity() {
     private var page by mutableIntStateOf(0)
+    private var aboutReturn by mutableIntStateOf(0)
     override fun onCreate(saved: Bundle?) {
         super.onCreate(saved)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         page = saved?.getInt("page") ?: intent.getIntExtra("page", 0)
+        aboutReturn = saved?.getInt("about_return") ?: 0
+        MountJob.restore(applicationContext)
         setContent { HdrTheme { ModuleUi() } }
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); if (intent.hasExtra("page")) page = intent.getIntExtra("page", 0) }
-    override fun onSaveInstanceState(out: Bundle) { super.onSaveInstanceState(out); out.putInt("page", page) }
+    override fun onSaveInstanceState(out: Bundle) { super.onSaveInstanceState(out); out.putInt("page", page); out.putInt("about_return", aboutReturn) }
 
     @Composable private fun HdrTheme(content: @Composable () -> Unit) {
         val dark = isSystemInDarkTheme()
@@ -78,15 +81,26 @@ class SettingsActivity : ComponentActivity() {
 
     @Composable private fun ModuleUi() {
         var full by rememberSaveable { mutableStateOf(false) }
-        BackHandler(page != 0 || full) { if (full) full = false else page = 0 }
-        Surface(Modifier.fillMaxSize(), color = if (full) Color.Black else MaterialTheme.colorScheme.background) {
+        fun back() { if (full) full = false else page = if (page == 5) aboutReturn else 0 }
+        BackHandler(page != 0 || full) { back() }
+        Surface(Modifier.fillMaxSize(), color = if (full) Color.Black else MaterialTheme.colorScheme.surfaceContainer) {
             Box(Modifier.fillMaxSize()) {
-                when (page) {
-                    1 -> TestPage(full, { full = it })
-                    2 -> SettingsPage()
-                    else -> HomePage()
+                AnimatedContent(targetState = page, transitionSpec = {
+                    val direction = if (targetState > initialState) 1 else -1
+                    (slideInHorizontally { direction * it / 5 } + fadeIn()) togetherWith
+                        (slideOutHorizontally { -direction * it / 5 } + fadeOut())
+                }, label = "manager_page") { destination ->
+                    when (destination) {
+                        1 -> TestPage(full, { full = it })
+                        2 -> SettingsPage()
+                        3 -> ManagerInstall(onBack = { back() }, onInstall = { uri -> MountJob.start(applicationContext,uri); page = 4 })
+                        4 -> ManagerFlash(onBack = { back() })
+                        5 -> ManagerAbout(onBack = { back() })
+                        else -> ManagerHome(onInstall = { page = if(MountJob.busy) 4 else 3 }, onTest = { page = 1 },
+                            onSettings = { page = 2 }, onAbout = { aboutReturn = 0; page = 5 }, onLog = { page = 4 })
+                    }
                 }
-                if (!full) FloatingNavigation(page, { page = it }, Modifier.align(Alignment.BottomCenter))
+                if (!full && page <= 2) FloatingNavigation(page, { page = it }, Modifier.align(Alignment.BottomCenter))
             }
         }
     }
@@ -98,60 +112,7 @@ class SettingsActivity : ComponentActivity() {
             content()
         }
     }
-    @Composable private fun HomePage() = PageColumn(getString(R.string.app_name)) {
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary), shape = RoundedCornerShape(32.dp)) {
-            Box(Modifier.fillMaxWidth().height(218.dp)) {
-                Canvas(Modifier.fillMaxSize()) {
-                    val center = androidx.compose.ui.geometry.Offset(size.width * .91f, size.height * .22f)
-                    for (r in listOf(40f, 77f, 115f)) drawCircle(Color.White.copy(alpha = .12f), r.dp.toPx(), center,
-                        style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
-                }
-                Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    Surface(shape = RoundedCornerShape(7.dp), color = MaterialTheme.colorScheme.onPrimary) {
-                        Text("ULTRA HDR", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp))
-                    }
-                    Column {
-                        Text("保留高光", fontSize = 36.sp, lineHeight = 44.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
-                        Text("原生截屏 · HDR JPG", style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            HomeTile("HDR", "测试与对照", Icons.Default.Image, Modifier.weight(1f)) { page = 1 }
-            HomeTile("光效", "预览与设置", Icons.Default.AutoAwesome, Modifier.weight(1f)) { page = 2 }
-        }
-        Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("从截屏到预览", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("识别有效 HDR 后，流动光带沿截图轮廓泛光，随图片缩小、移动和退出。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Text("带壳按钮循环切换 JPG、透明 PNG HDR 和关闭；内置 HDR 测试与截图检查。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { page = 1 }) { Text("打开 HDR 测试"); Icon(Icons.Default.ArrowForward, null, Modifier.padding(start = 8.dp).size(18.dp)) }
-            }
-        }
-        Text("1.4.5  ·  小米原生截屏增强", style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
-    }
-    @Composable private fun HomeTile(title: String, subtitle: String, icon: ImageVector, modifier: Modifier, action: () -> Unit) {
-        Card(onClick = action, modifier = modifier, shape = RoundedCornerShape(28.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp)) {
-                Icon(icon, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(14.dp)); Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text(subtitle, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
     @Composable private fun SettingsPage() {
-        val scope = rememberCoroutineScope()
-        var busy by remember { mutableStateOf(false) }
-        val stored = getSharedPreferences("local_status", MODE_PRIVATE)
-        var status by remember { mutableStateOf(stored.getString("result", null)?.takeUnless { it.contains("Cannot run program") }
-            ?: "需要在 Root 管理器授予本应用权限，并在 LSPosed 中启用“小米截屏”作用域。") }
-        var about by remember { mutableStateOf(false) }
         PageColumn("设置") {
             SectionTitle("预览效果")
             Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
@@ -165,6 +126,7 @@ class SettingsActivity : ComponentActivity() {
             }
             Text("HDR 预览独立启用，关闭辉光不影响图片的 HDR 显示。预览光效不会写入保存的图片。", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
+            CaptureRatioSettings()
             SectionTitle("HDR 图像质量")
             Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
                 Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
@@ -173,33 +135,31 @@ class SettingsActivity : ComponentActivity() {
             }
             Text("下次截图生效。SDR 观感会变化，保存耗时和 JPG 体积可能增加。JPG 仍有压缩误差；不支持的输入自动沿用原流程。", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
-            SectionTitle("HDR 捕获")
-            Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text("底层修复", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(status, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    fun generateMount(install: Boolean) { busy = true; scope.launch {
-                        status = if (install) "正在生成并安装挂载模块…" else "正在读取本机库并生成挂载模块…"
-                        val result = withContext(Dispatchers.IO) { enableRoot(install) }
-                        status = result; stored.edit().putString("result", result).apply(); busy = false
-                    } }
-                    Button(onClick = { generateMount(false) }, enabled = !busy,
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp)) {
-                        if (busy) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Spacer(Modifier.width(10.dp)) }
-                        Text(if (busy) "正在处理" else "生成挂载模块")
-                    }
-                    OutlinedButton(onClick = { generateMount(true) }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("生成并安装挂载模块") }
-                    Text("按本机库生成 Magisk / KernelSU / APatch 模块，沿用已有挂载方式，保存到 Download/MI-Screen-HDR-Enhanced。包含原库备份和异常回退。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FilledTonalButton(onClick = { try { startActivity(Intent().setClassName("org.lsposed.manager", "org.lsposed.manager.ui.activity.MainActivity")) }
-                        catch (_: Exception) { status = "请从你的 LSPosed 管理器启用本模块，仅勾选“小米截屏”。" } }, modifier = Modifier.fillMaxWidth()) { Text("打开 LSPosed") }
-                    Text("作用域：小米截屏 / com.miui.screenshot。通过 SO 注入增强捕获，系统截屏 APK 保持原样。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            TextButton(onClick = { about = true }) { Icon(Icons.Default.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("UI 框架与第三方许可") }
+            TextButton(onClick = { aboutReturn = 2; page = 5 }) { Icon(Icons.Default.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("关于小米截屏HDR增强") }
         }
-        if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("框架与许可") },
-            text = { Text("UI 框架\nGoogle / AndroidX Jetpack Compose Material 3\n设计规范：Google Material 3 Expressive\n组件库许可：Apache-2.0\ndeveloper.android.com/jetpack/androidx/releases/compose-material3\n\n第三方代码\n部分主题配置与浮动导航代码改编自 SukiSU-Ultra，遵循 GPL-3.0。这是所复用代码的出处，不是 UI 框架的来源。详细路径、版本和许可见随包源码。\n\nJPEG 编码\nlibjpeg-turbo 3.1.2\nThis software is based in part on the work of the Independent JPEG Group.\n许可随 APK 打包在 assets/licenses 中。\n\nHDR 素材\nMishaal Rahman · CC BY 4.0\ngithub.com/MishaalRahmanGH/Ultra_HDR_Samples") },
-            confirmButton = { TextButton(onClick = { about = false }) { Text("知道了") } })
+    }
+    @Composable private fun CaptureRatioSettings() {
+        val prefs = getSharedPreferences("ui_options", MODE_PRIVATE)
+        var automatic by remember { mutableStateOf(prefs.getBoolean("capture_ratio_auto", true)) }
+        var ratio by remember { mutableStateOf(prefs.getFloat("capture_ratio", 4f).toString()) }
+        val value = ratio.toFloatOrNull()
+        val valid = value != null && value.isFinite() && value > 1f && value <= 10000f
+        SectionTitle("HDR 捕获比例")
+        Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) { Text("自动亮度比例", style = MaterialTheme.typography.titleMedium)
+                        Text("原始比例异常时，使用捕获屏幕当前的 HDR/SDR 比例。", style = MaterialTheme.typography.bodySmall) }
+                    Switch(automatic, { if (prefs.edit().putBoolean("capture_ratio_auto", it).commit()) automatic = it })
+                }
+                if (!automatic) {
+                    OutlinedTextField(value = ratio, onValueChange = { ratio = it }, label = { Text("自定义 HDR / SDR 倍率") }, singleLine = true,
+                        isError = !valid, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+                    Button(onClick = { if (valid) prefs.edit().putFloat("capture_ratio", value!!).apply() }, enabled = valid) { Text("应用倍率") }
+                }
+                Text("用于校正增益图的亮度范围。只有捕获到真实增益数据时才生效；空白增益图不会因调整倍率而恢复。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
     }
     @Composable private fun SectionTitle(title: String) { Text(title, style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 12.dp)) }
@@ -212,25 +172,6 @@ class SettingsActivity : ComponentActivity() {
                 thumbContent = if (checked) { { Icon(Icons.Default.Check, null, Modifier.size(SwitchDefaults.IconSize)) } } else null)
         }
     }
-    private fun enableRoot(install: Boolean): String = try {
-        fun quote(s: String) = "'" + s.replace("'", "'\\''") + "'"
-        val apk = applicationInfo.sourceDir
-        val cmd = "export PATH=/system/bin:/system/xbin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk; CLASSPATH=${quote(apk)} /system/bin/app_process /system/bin dev.local.miuihdr.RootSetup ${quote(apk)} ${if (install) "install" else "generate"}"
-        val log = java.io.File.createTempFile("mount-", ".log", cacheDir)
-        // Installers can print more than a pipe buffer; never wait before draining a pipe.
-        val p = ProcessBuilder("su", "-c", cmd).redirectErrorStream(true).redirectOutput(log).start()
-        if (!p.waitFor(180, TimeUnit.SECONDS)) { "尚未确认操作完成，请先查看 Root 管理器状态，避免重复安装。" }
-        else { val detail = java.io.RandomAccessFile(log, "r").use { file ->
-                val bytes = ByteArray(minOf(file.length(), 64000L).toInt())
-                file.seek(file.length() - bytes.size); file.readFully(bytes); String(bytes, Charsets.UTF_8)
-            }
-            log.delete()
-            getSharedPreferences("local_status", MODE_PRIVATE).edit().putString("detail", detail).apply()
-            if (p.exitValue() == 0) { if (install) "挂载模块已安装，原库已备份。下次启动验证，异常时回退。" else "挂载模块已生成：\n" + detail.lineSequence().firstOrNull { it.startsWith("GENERATED_ZIP=") }?.removePrefix("GENERATED_ZIP=") } else "启用未完成：${detail.takeLast(900)}"
-        }
-    } catch (_: java.io.IOException) { "请先在 Magisk / KernelSU / APatch 中授予“${getString(R.string.app_name)}”Root 权限，然后重试。" }
-      catch (e: Exception) { "启用未完成：${e.message}" }
-
     @Composable private fun TestPage(full: Boolean, setFull: (Boolean) -> Unit) {
         var source by rememberSaveable { mutableIntStateOf(0) }
         var mode by rememberSaveable { mutableIntStateOf(1) }

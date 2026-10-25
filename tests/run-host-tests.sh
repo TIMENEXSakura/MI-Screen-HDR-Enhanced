@@ -9,6 +9,8 @@ mkdir -p build/host-tests
 javac -d build/host-tests src/dev/local/miuihdr/LibraryLocator.java src/dev/local/miuihdr/RootInstaller.java tests/LibraryLocatorTest.java tests/RootInstallerTest.java
 java -cp build/host-tests dev.local.miuihdr.LibraryLocatorTest
 java -cp build/host-tests dev.local.miuihdr.RootInstallerTest
+javac -d build/host-tests src/dev/local/miuihdr/InstallProgress.java tests/InstallProgressTest.java
+java -cp build/host-tests dev.local.miuihdr.InstallProgressTest
 HDR_API_AAR=$(find "${GRADLE_USER_HOME:-$HOME/.gradle}/caches/modules-2/files-2.1/io.github.libxposed/api/102.0.0" -name '*.aar' -print -quit)
 python3 - "$HDR_API_AAR" <<'PY'
 from pathlib import Path

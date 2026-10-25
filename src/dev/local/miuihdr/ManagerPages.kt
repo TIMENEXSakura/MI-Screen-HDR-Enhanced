@@ -15,6 +15,8 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectableGroup
@@ -279,6 +281,9 @@ internal fun ManagerFlash(onBack: () -> Unit) {
     val scroll = rememberScrollState()
     val snapshot = MountJob.text
     var exportText by remember { mutableStateOf("") }
+    var preparingExport by remember { mutableStateOf(false) }
+    val displayedProgress by animateFloatAsState(MountJob.progress / 100f,
+        animationSpec = tween(220), label = "installation_progress")
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if(uri != null) scope.launch {
             val error = withContext(Dispatchers.IO) { try {
@@ -293,16 +298,34 @@ internal fun ManagerFlash(onBack: () -> Unit) {
     Scaffold(containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = { TopAppBar(title = { Text(if(MountJob.busy) "正在安装" else if(MountJob.success) "安装成功" else "安装记录") },
             navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") } },
-            actions = { IconButton(onClick = { exportText = snapshot; save.launch("MI-Screen-HDR-Enhanced-$RELEASE-install.txt") },
-                enabled = snapshot.isNotEmpty()) { Icon(Icons.Default.Save, "保存日志") } },
+            actions = { IconButton(onClick = {
+                preparingExport = true
+                scope.launch {
+                    try {
+                        exportText = withContext(Dispatchers.IO) { MountJob.exportLog(context) }
+                        save.launch("MI-Screen-HDR-Enhanced-$RELEASE-install.txt")
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "读取完整日志失败：${e.message}", Toast.LENGTH_LONG).show()
+                    } finally { preparingExport = false }
+                }
+            }, enabled = snapshot.isNotEmpty() && !preparingExport) { Icon(Icons.Default.Save, "保存完整日志") } },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) },
         floatingActionButton = { if(!MountJob.busy) ExtendedFloatingActionButton(onClick = onBack,
             icon = { Icon(Icons.Default.Check, null) }, text = { Text("完成") }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if(MountJob.busy) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
-                Text(MountJob.phase, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-            } else if(MountJob.status != null) Text(MountJob.status!!, style = MaterialTheme.typography.bodyMedium)
+            if(MountJob.busy || MountJob.status != null) {
+                LinearProgressIndicator(progress = { displayedProgress }, modifier = Modifier.fillMaxWidth())
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(MountJob.phase, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text("${MountJob.progress}%", style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary)
+                }
+            }
+            if(!MountJob.busy && MountJob.status != null) Text(MountJob.status!!, style = MaterialTheme.typography.bodyMedium)
+            if(MountJob.truncated) Text("当前显示日志末尾；右上角可保存完整记录。",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Surface(modifier = Modifier.fillMaxWidth().weight(1f), shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surfaceBright, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 androidx.compose.foundation.text.selection.SelectionContainer {

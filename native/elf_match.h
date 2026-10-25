@@ -67,7 +67,8 @@ static int capture_symbol(const char *name){
 /* Section symbols are retained in Android shared libraries even when the full
  * .symtab is stripped. Fully sectionless binaries use only the exact legacy
  * fingerprint; never extrapolate a loose pattern across unrelated functions. */
-static int in_capture_function(const unsigned char *data,size_t size,const Elf64_Ehdr *eh,size_t pos,size_t length){
+typedef struct {const char *name;uint64_t address,length;size_t offset;} FunctionSymbol;
+static int function_symbol(const unsigned char *data,size_t size,const Elf64_Ehdr *eh,size_t pos,size_t length,int capture_only,FunctionSymbol *result){
  if(eh->e_shentsize!=sizeof(Elf64_Shdr)||!span(eh->e_shoff,(uint64_t)eh->e_shnum*sizeof(Elf64_Shdr),size))return 0;
  for(unsigned n=0;n<eh->e_shnum;n++){
   Elf64_Shdr sh;memcpy(&sh,data+eh->e_shoff+n*sizeof(sh),sizeof(sh));
@@ -78,8 +79,14 @@ static int in_capture_function(const unsigned char *data,size_t size,const Elf64
    Elf64_Sym sym;memcpy(&sym,data+sh.sh_offset+i,sizeof(sym));
    if(ELF64_ST_TYPE(sym.st_info)!=STT_FUNC||sym.st_shndx==SHN_UNDEF||sym.st_name>=strings.sh_size||!sym.st_size)continue;
    const char *name=(const char *)data+strings.sh_offset+sym.st_name;
-   if(!memchr(name,0,strings.sh_size-sym.st_name)||!capture_symbol(name))continue;
-   size_t start;if(code_range(data,size,eh,sym.st_value,sym.st_size,&start)&&pos>=start&&pos-start<=sym.st_size&&length<=sym.st_size-(pos-start))return 1;
+   if(!memchr(name,0,strings.sh_size-sym.st_name)||(capture_only&&!capture_symbol(name)))continue;
+   size_t start;if(code_range(data,size,eh,sym.st_value,sym.st_size,&start)&&pos>=start&&pos-start<=sym.st_size&&length<=sym.st_size-(pos-start)){
+    if(result)*result=(FunctionSymbol){name,sym.st_value,sym.st_size,start};
+    return 1;
+   }
   }
  }return 0;
+}
+static int in_capture_function(const unsigned char *data,size_t size,const Elf64_Ehdr *eh,size_t pos,size_t length){
+ return function_symbol(data,size,eh,pos,length,1,NULL);
 }

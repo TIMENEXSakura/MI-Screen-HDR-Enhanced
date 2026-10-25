@@ -45,6 +45,41 @@ public final class LibraryLocatorTest {
   check(l.select(probe).target.endsWith("libvendor_render_impl.so"),"resolve implementation in a renamed loaded library");
   root=root();put(root,"/system_ext/lib64/libmisurfaceflinger.so","match");l=new LibraryLocator(root);l.discover(Collections.emptyList());
   check(l.select(probe).target.endsWith("libmisurfaceflinger.so"),"discover alternate Finger candidate without maps");
+  List<String> events=new ArrayList<>();List<String> liveLogs=new ArrayList<>();
+  root=root();put(root,"/system/lib64/libsurfaceflinger.so","match");put(root,"/system_ext/lib64/libsurfaceflinger.so","stale");
+  l=new LibraryLocator(root,new LibraryLocator.Observer(){
+   public void log(String line){liveLogs.add(line);}
+   public void progress(String phase,int done,int total){events.add(phase+":"+done+"/"+total);}
+  });
+  l.discover(Collections.emptyList());
+  check(events.get(0).equals("discover:0/26")&&events.get(events.size()-1).equals("discover:26/26"),"directory progress counts actual completed roots including missing directories");
+  check(liveLogs.stream().anyMatch(v->v.startsWith("SEARCH_RESULT ")&&v.contains("status=missing")),"missing directories explained in live diagnostics");
+  final int[] checked={0};
+  l.select(c->{
+   check(events.get(events.size()-1).equals("probe:"+checked[0]+"/2"),"probe progress advances only after candidate finishes "+checked[0]);
+   checked[0]++;return probe.check(c);
+  });
+  check(events.get(events.size()-1).equals("probe:2/2"),"candidate completion reports full known denominator");
+  check(liveLogs.stream().anyMatch(v->v.startsWith("CANDIDATE index=1 total=2")&&v.contains(" real=")&&v.contains(" aliases=")&&v.contains(" size=")),"live candidate log includes identity size and sequence");
+  check(liveLogs.stream().anyMatch(v->v.startsWith("REJECT ")&&v.contains("clamp sequence not found")),"candidate rejection reason streams immediately");
+  check(liveLogs.equals(l.diagnostics),"live diagnostics preserve the complete locator report in order");
+  List<LibraryLocator.Mapping> segments=LibraryLocator.mappedSegments(
+    "7fa1000000-7fa1003000 r-xp 00002000 fd:05 1234 /system/lib64/libsurfaceflinger.so\n"+
+    "7fa1003000-7fa1004000 r--p 00005000 fd:05 1234 /system/lib64/libsurfaceflinger.so (deleted)\n"+
+    "not-a-range r-xp 0000 01:23 1 /system/lib64/libbroken.so\n"+
+    "10-10 r-xp 0000 01:23 1 /system/lib64/libempty.so\n"+
+    "10-20 invalid 0000 01:23 1 /system/lib64/libbadflags.so\n");
+  check(segments.size()==2,"mapping parser rejects malformed ranges and preserves deleted mapping identity");
+  LibraryLocator.Mapping segment=segments.get(0);
+  check(segment.start==0x7fa1000000L&&segment.end==0x7fa1003000L&&segment.offset==0x2000L&&segment.deviceMajor==0xfd&&segment.deviceMinor==5&&segment.inode==1234,"mapping records file offset permissions device and inode");
+  check(segment.matchesIdentity(0xfd05L,1234)&&!segment.matchesIdentity(0xfc05L,1234)&&!segment.matchesIdentity(0xfd05L,1235),"mapping identity requires the same device and inode");
+  long major=0xabcdeL,minor=0x123456L;
+  long device=(minor&0xffL)|((major&0xfffL)<<8)|((minor&0xffffff00L)<<12)|((major&0xfffff000L)<<32);
+  LibraryLocator.Mapping wideDevice=new LibraryLocator.Mapping(0x1000,0x2000,0,"r-xp",major,minor,77,"/system/lib64/libtest.so");
+  check(wideDevice.matchesIdentity(device,77),"extended device major bits do not contaminate the minor number");
+  check(segment.runtimeAddress(0x2118L)==0x7fa1000118L,"runtime address adds only offset relative to the mapped file segment");
+  check(segment.runtimeAddress(0x1fffL)==null&&segment.runtimeAddress(0x5000L)==null,"runtime mapping excludes offsets before start and at exclusive end");
+  check(segment.runtimeAddress(0x4fffL)==0x7fa1002fffL,"runtime mapping includes final byte of segment");
   System.out.println("ALL PASS "+passed);
  }
 }

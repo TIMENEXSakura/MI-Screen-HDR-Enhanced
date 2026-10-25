@@ -2,6 +2,8 @@
 
 **小米截屏HDR增强**：通过 LSPosed Hook 和原生 SO 注入，为小米原生截屏保留 HDR 增益图，并修复编辑、带壳导出中的 HDR 信息丢失。不替换系统截图 APK。
 
+应用图标采用截屏四角与四芒高光的简约线条，[SVG 源文件](artwork/mi-screen-hdr-enhanced.svg)随源码提供；Android 使用对应矢量自适应图标，并支持单色主题图标。
+
 ## 下载与安装
 
 从 [Releases](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/releases) 下载 APK，在 LSPosed 中启用模块，作用域选择 **小米截屏（`com.miui.screenshot`）**。

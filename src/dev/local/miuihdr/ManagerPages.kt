@@ -38,6 +38,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -313,7 +314,7 @@ internal fun ManagerAbout(onBack: () -> Unit) {
             Column(Modifier.fillMaxWidth().heightIn(min = 240.dp).padding(24.dp), verticalArrangement = Arrangement.SpaceBetween) {
                 Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.onPrimary,
                     contentColor = MaterialTheme.colorScheme.primary) {
-                    Icon(Icons.Default.HdrOn, null, Modifier.size(64.dp).padding(12.dp))
+                    Icon(painterResource(R.drawable.ic_launcher_foreground), null, Modifier.size(64.dp))
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("小米截屏HDR增强", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Black)

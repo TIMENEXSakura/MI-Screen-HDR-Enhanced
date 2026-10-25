@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108" role="img" aria-labelledby="title desc">
+  <title id="title">小米截屏HDR增强</title>
+  <desc id="desc">四角截屏取景框与中央四芒高光，简约圆头线条。</desc>
+  <rect width="108" height="108" rx="24" fill="#F3F0FF"/>
+  <g fill="none" stroke="#4B3C76" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M43 31H37Q31 31 31 37V43 M65 31H71Q77 31 77 37V43 M77 65V71Q77 77 71 77H65 M43 77H37Q31 77 31 71V65"/>
+    <path d="M54 42Q56 52 66 54Q56 56 54 66Q52 56 42 54Q52 52 54 42Z"/>
+  </g>
+</svg>

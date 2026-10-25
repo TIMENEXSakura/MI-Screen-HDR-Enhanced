@@ -138,29 +138,6 @@ class SettingsActivity : ComponentActivity() {
             TextButton(onClick = { aboutReturn = 2; page = 5 }) { Icon(Icons.Default.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("关于小米截屏HDR增强") }
         }
     }
-    @Composable private fun CaptureRatioSettings() {
-        val prefs = getSharedPreferences("ui_options", MODE_PRIVATE)
-        var automatic by remember { mutableStateOf(prefs.getBoolean("capture_ratio_auto", true)) }
-        var ratio by remember { mutableStateOf(prefs.getFloat("capture_ratio", 4f).toString()) }
-        val value = ratio.toFloatOrNull()
-        val valid = value != null && value.isFinite() && value > 1f && value <= 10000f
-        SectionTitle("HDR 捕获比例")
-        Card(shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
-            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("自动亮度比例", style = MaterialTheme.typography.titleMedium)
-                        Text("原始比例异常时，使用捕获屏幕当前的 HDR/SDR 比例。", style = MaterialTheme.typography.bodySmall) }
-                    Switch(automatic, { if (prefs.edit().putBoolean("capture_ratio_auto", it).commit()) automatic = it })
-                }
-                if (!automatic) {
-                    OutlinedTextField(value = ratio, onValueChange = { ratio = it }, label = { Text("自定义 HDR / SDR 倍率") }, singleLine = true,
-                        isError = !valid, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
-                    Button(onClick = { if (valid) prefs.edit().putFloat("capture_ratio", value!!).apply() }, enabled = valid) { Text("应用倍率") }
-                }
-                Text("用于校正增益图的亮度范围。只有捕获到真实增益数据时才生效；空白增益图不会因调整倍率而恢复。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-    }
     @Composable private fun SectionTitle(title: String) { Text(title, style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 12.dp)) }
     @Composable private fun EffectSwitch(title: String, desc: String, key: String, defaultValue: Boolean = true) {

@@ -83,16 +83,18 @@ private fun ManagerScaffold(title: String, onBack: (() -> Unit)? = null,
 internal fun ManagerHome(onInstall: () -> Unit, onTest: () -> Unit, onSettings: () -> Unit,
                          onAbout: () -> Unit, onLog: () -> Unit) {
     val context = LocalContext.current
+    var confirmReload by rememberSaveable { mutableStateOf(false) }
     val screenshotVersion = remember { try {
         context.packageManager.getPackageInfo("com.miui.screenshot", 0).versionName ?: "—"
     } catch (_: Exception) { "未检测到" } }
     val haptic = LocalHapticFeedback.current
     ManagerScaffold("小米截屏HDR增强", bottomSpace = 108, actions = {
         TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-            tooltip = { PlainTooltip { Text("停止系统截屏；未保存的编辑会丢失") } }, state = rememberTooltipState()) {
-            IconButton(onClick = { ScreenshotControl.stop(context) }, enabled = !ScreenshotControl.busy) {
+            tooltip = { PlainTooltip { Text("重新加载系统截屏") } }, state = rememberTooltipState()) {
+            IconButton(onClick = { if (!ScreenshotControl.busy) confirmReload = true },
+                enabled = !ScreenshotControl.busy && !confirmReload) {
                 if(ScreenshotControl.busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Icon(Icons.Default.PowerSettingsNew, "停止系统截屏")
+                else Icon(Icons.Default.PowerSettingsNew, "重新加载系统截屏")
             }
         }
         IconButton(onClick = onAbout) { Icon(Icons.Default.Info, "关于") }
@@ -143,6 +145,15 @@ internal fun ManagerHome(onInstall: () -> Unit, onTest: () -> Unit, onSettings: 
             ManagerLink("安装记录", "查看修补与挂载日志", Icons.Default.Terminal, true, onLog)
             ManagerLink("关于", "开源项目与许可", Icons.Default.Info, false, onAbout)
         }
+    }
+    if (confirmReload) WindowBlurDialog(
+        title = "重新加载系统截屏",
+        text = "将结束小米系统截屏进程，未保存的编辑会丢失。下次截图时会自动重新启动。",
+        confirmText = "确认停止",
+        dismissText = "取消"
+    ) { confirmed ->
+        confirmReload = false
+        if (confirmed && !ScreenshotControl.busy) ScreenshotControl.stop(context)
     }
 }
 

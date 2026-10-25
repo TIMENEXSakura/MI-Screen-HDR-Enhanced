@@ -5,6 +5,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,11 +24,17 @@ import kotlin.math.roundToInt
 /** Android window blur and the dialog share one reversible animation timeline. */
 @Composable
 internal fun WindowBlurDialog(title: String, text: String, confirmText: String,
-                              dismissText: String? = null, onResult: (Boolean) -> Unit) {
+                              dismissText: String? = null, confirmEnabled: Boolean = true,
+                              content: (@Composable ColumnScope.() -> Unit)? = null,
+                              onResult: (Boolean) -> Unit) {
     var decision by remember { mutableStateOf<Boolean?>(null) }
     val progress = remember { Animatable(0f) }
     val result by rememberUpdatedState(onResult)
-    Dialog(onDismissRequest = { if (decision == null) decision = false },
+    var closingResult by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
+    fun decide(confirmed: Boolean) {
+        if (decision == null) { closingResult = result; decision = confirmed }
+    }
+    Dialog(onDismissRequest = { decide(false) },
         properties = DialogProperties(usePlatformDefaultWidth = true)) {
         val view = LocalView.current
         val window = (view.parent as? DialogWindowProvider)?.window
@@ -52,7 +60,7 @@ internal fun WindowBlurDialog(title: String, text: String, confirmText: String,
             val closing = decision != null
             progress.animateTo(if (closing) 0f else 1f,
                 tween(if (closing) 180 else 280, easing = FastOutSlowInEasing))
-            if (closing) result(decision == true)
+            if (closing) closingResult?.invoke(decision == true)
         }
         Surface(shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surfaceContainerHigh,
             modifier = Modifier.fillMaxWidth().graphicsLayer {
@@ -60,11 +68,16 @@ internal fun WindowBlurDialog(title: String, text: String, confirmText: String,
             }) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
                 Text(title, style = MaterialTheme.typography.headlineSmall)
-                Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    content?.invoke(this)
+                }
                 Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (dismissText != null) TextButton(enabled = decision == null,
-                        onClick = { decision = false }) { Text(dismissText) }
-                    TextButton(enabled = decision == null, onClick = { decision = true }) { Text(confirmText) }
+                        onClick = { decide(false) }) { Text(dismissText) }
+                    TextButton(enabled = decision == null && confirmEnabled,
+                        onClick = { decide(true) }) { Text(confirmText) }
                 }
             }
         }

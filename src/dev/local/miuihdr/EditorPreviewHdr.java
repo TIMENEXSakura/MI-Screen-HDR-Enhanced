@@ -48,7 +48,7 @@ final class EditorPreviewHdr {
     android.content.Intent intent=editor.getIntent();android.os.Bundle extras=intent==null?null:intent.getExtras();
     android.os.IBinder binder=extras==null?null:extras.getBinder("key-transition-binder");
     HdrSignal.Info info;synchronized(TRANSITIONS){info=TRANSITIONS.get(binder);}
-    if(info!=null&&info.hdr){PreviewHdr.prepareEditor(editor.getWindow(),info);earlyTransitions++;MiuiHook.log("Editor transition starts in HDR before content attachment ratio="+info.ratio);}
+    if(info!=null&&info.hdr){PreviewHdr.prepareEditor(editor.getWindow(),info);EditorTransition.prepare(editor,binder);earlyTransitions++;MiuiHook.log("Editor transition starts in HDR before content attachment ratio="+info.ratio);}
    }});
   }catch(ReflectiveOperationException absent){MiuiHook.log("Editor early HDR transition unavailable: "+absent);}
   MiuiHook.log("Editor HDR preview hooks="+count+" shell geometry follows native clipping");

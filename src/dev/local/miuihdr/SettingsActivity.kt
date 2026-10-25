@@ -237,7 +237,7 @@ class SettingsActivity : ComponentActivity() {
                 }
             }
         }
-        if (report != null) AlertDialog(onDismissRequest = { report = null }, title = { Text("HDR 测试") }, text = { Text(report!!) }, confirmButton = { TextButton(onClick = { report = null }) { Text("完成") } })
+        if (report != null) WindowBlurDialog("HDR 测试", report!!, "完成") { report = null }
     }
 }
 

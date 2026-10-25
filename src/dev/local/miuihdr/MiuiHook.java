@@ -19,6 +19,7 @@ public final class MiuiHook {
   try{HookRuntime.add(Class.forName("android.view.WindowManagerImpl").getDeclaredMethod("updateViewLayout",android.view.View.class,android.view.ViewGroup.LayoutParams.class),new Callback(){
    protected void before(Call param){param.args[1]=PreviewHdr.keepHdr((android.view.View)param.args[0],(android.view.ViewGroup.LayoutParams)param.args[1]);}
   });}catch(Throwable t){log("HDR preview window update hook unavailable: "+t);}
+  try{EditorTransition.install(cl);}catch(Throwable t){log("Editor fade hook unavailable: "+t);}
   try{EditorPreviewHdr.install(cl);}catch(Throwable t){log("Editor HDR preview hook unavailable: "+t);}
   try{CaptureRatioHooks.install();}catch(Throwable t){log("Capture ratio unavailable: "+t);}
   try{PrecisionHooks.install();}catch(Throwable t){log("Pixel HDR encoder hook unavailable: "+t);}
@@ -72,8 +73,11 @@ public final class MiuiHook {
    // j2 only begins the later transition into the corner thumbnail.
    Method preview=controller.getDeclaredMethod("i2",Runnable.class);
    try{HookRuntime.add(controller.getDeclaredMethod("i1"),new Callback(){protected void after(Call param){
-    if(!param.hasThrowable()&&param.getResult() instanceof android.os.IBinder)
-     EditorPreviewHdr.rememberTransition((android.os.IBinder)param.getResult(),(HdrSignal.Info)HookObjects.getAdditionalInstanceField(param.thisObject,STATE));
+    if(!param.hasThrowable()&&param.getResult() instanceof android.os.IBinder){
+     android.os.IBinder binder=(android.os.IBinder)param.getResult();
+     EditorPreviewHdr.rememberTransition(binder,(HdrSignal.Info)HookObjects.getAdditionalInstanceField(param.thisObject,STATE));
+     try{EditorTransition.remember(binder,imageView(param.thisObject));}catch(Throwable t){log("Editor bloom handoff unavailable: "+t);}
+    }
    }});}catch(ReflectiveOperationException absent){log("Thumbnail HDR handoff unavailable: "+absent);}
    HookRuntime.add(receive,new Callback(){protected void before(Call param){try{
     Bitmap b=(Bitmap)param.args[0].getClass().getMethod("getBitmap").invoke(param.args[0]);HdrSignal.Info info=HdrSignal.inspect(b);

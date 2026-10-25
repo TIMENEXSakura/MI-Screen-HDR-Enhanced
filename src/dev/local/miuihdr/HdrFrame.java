@@ -56,7 +56,7 @@ final class HdrFrame extends Drawable implements View.OnAttachStateChangeListene
   }
   if(badge&&badgeStart>=0){float fade=animate?Math.min(1,Math.max(0,(now-badgeStart)/300f)):1;fade=fade*fade*(3-2*fade);int badgeOpacity=Math.round(effectiveOpacity*fade);paint.setShader(null);paint.setStyle(Paint.Style.FILL);paint.setTextSize(10*density);float tw=paint.measureText("HDR"),bw=tw+12*density,bh=19*density,x=rect.right-bw-8*density,y=rect.top+8*density;destination.set(x,y,x+bw,y+bh);paint.setColor(0xe61b2639);paint.setAlpha(225*badgeOpacity/255);canvas.drawRoundRect(destination,5*density,5*density,paint);paint.setColor(0xffddf8ff);paint.setAlpha(badgeOpacity);canvas.drawText("HDR",x+6*density,y+(bh-paint.ascent()-paint.descent())/2,paint);}
  }
- static void beforeCapture(){final CountDownLatch cleared=new CountDownLatch(1);Runnable work=()->{try{boolean any=!FRAMES.isEmpty();for(ImageView v:new ArrayList<ImageView>(FRAMES.keySet()))if(v!=null)clear(v);PreviewHdr.clearTransient();if(any)MiuiHook.log("Previous HDR bloom removed before capture");}finally{cleared.countDown();}};
+ static void beforeCapture(){final CountDownLatch cleared=new CountDownLatch(1);Runnable work=()->{try{EditorTransition.beforeCapture();boolean any=!FRAMES.isEmpty();for(ImageView v:new ArrayList<ImageView>(FRAMES.keySet()))if(v!=null)clear(v);PreviewHdr.clearTransient();if(any)MiuiHook.log("Previous HDR bloom removed before capture");}finally{cleared.countDown();}};
   if(Looper.myLooper()==Looper.getMainLooper()){work.run();return;}
   new Handler(Looper.getMainLooper()).post(work);try{if(!cleared.await(400,TimeUnit.MILLISECONDS))MiuiHook.log("Preview clear delayed; capture layer exclusion remains active");}catch(InterruptedException e){Thread.currentThread().interrupt();}
  }

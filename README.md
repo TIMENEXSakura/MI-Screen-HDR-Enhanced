@@ -154,3 +154,9 @@ java -cp build/installer-tests dev.local.miuihdr.RootInstallerTest
 本项目为独立项目，与小米、Google、SukiSU 或 LSPosed 无官方隶属关系。
 
 This software is based in part on the work of the Independent JPEG Group.
+
+### 预览到编辑页的过渡
+
+放大仍使用小米原有动画。图片就位后，彩色辉光以 360 ms 渐隐，编辑工具栏按同一进度渐显；HDR 图片本身不参与透明度淡入。辉光始终留在原有截图排除窗口，连续截图时立即清理，退出、加载超时和系统关闭动画时回到原生流程。
+
+应用确认/说明弹窗使用 Android 窗口背景模糊，模糊半径、遮罩和弹窗同步渐入/渐出；系统禁用窗口模糊时使用渐变遮罩。

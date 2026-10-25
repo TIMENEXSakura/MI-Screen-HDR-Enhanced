@@ -16,6 +16,12 @@ public final class InstallProgressTest {
         check(InstallProgress.finish(85,false)==85,"failure retains the last completed percentage");
         check(InstallProgress.finish(100,false)==99,"failed exit cannot display success as 100 percent");
         check(InstallProgress.finish(99,true)==100,"successful exit completes progress");
+        check(InstallProgress.userLine("CANDIDATE index=1 path=/system/lib64/libother.so")==null
+            &&InstallProgress.userLine("ELF_SEGMENT file_offset=0x100")==null
+            &&InstallProgress.userLine("PROGRESS=40|扫描阶段")==null,"candidate scans and raw technical details never flood the visible log");
+        check(InstallProgress.userLine("USER_LOG=找到目标库：/system/lib64/libsurfaceflinger.so").equals("找到目标库：/system/lib64/libsurfaceflinger.so"),"selected library summary is visible without protocol prefix");
+        check(InstallProgress.userLine("[阶段 2/7 · 扫描阶段] 正在查找").contains("正在查找"),"Chinese stage explanation remains visible");
+        check(InstallProgress.userLine("USER_LOG=安装未完成：没有识别到支持的运行库。").contains("安装未完成"),"concise failure explanation remains visible");
         System.out.println("INSTALL_PROGRESS_CHECKS="+passed);
     }
 }

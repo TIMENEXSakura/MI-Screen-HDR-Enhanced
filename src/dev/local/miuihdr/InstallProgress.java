@@ -16,4 +16,9 @@ final class InstallProgress {
     }
     static int advance(int current, int reported) { return Math.max(current,Math.min(99,Math.max(0,reported))); }
     static int finish(int current, boolean success) { return success?100:Math.min(99,Math.max(0,current)); }
+    static String userLine(String line) {
+        if(line==null)return null;
+        if(line.startsWith("USER_LOG="))return line.substring(9);
+        return line.startsWith("[阶段 ")?line:null;
+    }
 }

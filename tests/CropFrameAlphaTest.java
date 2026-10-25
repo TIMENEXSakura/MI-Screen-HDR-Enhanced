@@ -22,10 +22,14 @@ public final class CropFrameAlphaTest {
   Paint background=new Paint();background.setColor(0xff101820);new Canvas(base).drawRect(0,0,192,16,background);
   Bitmap map=Bitmap.createBitmap(1,1,Bitmap.Config.ARGB_8888);map.eraseColor(Color.WHITE);
   Gainmap gain=new Gainmap(map);gain.setRatioMax(4,4,4);gain.setDisplayRatioForFullHdr(4);
+  base.setGainmap(gain);
   long previous=-1;
   for(float fraction:new float[]{0,.25f,.5f,.75f,1}){
-   Bitmap result=base.copy(Bitmap.Config.ARGB_8888,true);result.setGainmap(gain);
-   try(CropFrameAlpha state=CropFrameAlpha.begin(drawable,fraction)){drawable.draw(new Canvas(result));}
+   // The real editor reads its HDR source into a window, then draws UI above it.
+   // A mutable software Canvas target is not an HDR screenshot container: Canvas
+   // may drop its gainmap. Do not mistake that unrelated operation for a UI fade.
+   Bitmap result=bitmap();Canvas canvas=new Canvas(result);canvas.drawBitmap(base,0,0,null);
+   try(CropFrameAlpha state=CropFrameAlpha.begin(drawable,fraction)){drawable.draw(canvas);}
    check(drawable.getAlpha()==255,label+" restores native alpha at "+fraction);
    boolean unchanged=true;long difference=0;int borderPixels=0;
    for(int y=0;y<256;y++)for(int x=0;x<192;x++){
@@ -35,12 +39,13 @@ public final class CropFrameAlphaTest {
    }
    check(borderPixels>0&&unchanged,label+" changes only the crop-border footprint at "+fraction);
    check(fraction==0?difference==0:difference>previous,label+" border progressively appears at "+fraction);
-   check(result.hasGainmap()&&result.getGainmap().getDisplayRatioForFullHdr()==4
-    &&result.getGainmap().getGainmapContents().getPixel(0,0)==Color.WHITE,label+" keeps HDR gain metadata at "+fraction);
+   check(base.hasGainmap()&&base.getGainmap().getDisplayRatioForFullHdr()==4
+    &&base.getGainmap().getGainmapContents().getPixel(0,0)==Color.WHITE,label+" leaves original HDR source unchanged at "+fraction);
    previous=difference;
   }
  }
- public static void main(String[] args)throws Exception{
+ public static void main(String[] args){try{run(args);}catch(Throwable failure){failure.printStackTrace();System.exit(1);}}
+ private static void run(String[] args)throws Exception{
   AssetManager assets=AssetManager.class.getDeclaredConstructor().newInstance();
   Method add=AssetManager.class.getDeclaredMethod("addAssetPath",String.class);add.setAccessible(true);
   check(((Integer)add.invoke(assets,args[0]))>0,"loaded original Xiaomi APK resources read-only");

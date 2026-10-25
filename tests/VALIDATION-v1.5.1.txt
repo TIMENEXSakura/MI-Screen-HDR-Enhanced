@@ -21,6 +21,9 @@ Android runtime checks (Xiaomi 17 Ultra, OS4.0.4.0.XPACNXM, API 37):
   Transition preparation requests HDR before attachment, hands over to the bitmap
   and restores the pre-HDR baseline; SDR transition is unchanged.
 - PrecisionCodecTest: 22. HDR JPEG round-trip, metadata/color space, invalid inputs.
+- CropGainmapTest: 22, cloud-compiled and run against the phone's Xiaomi crop
+  classes. Native crop loss reproduced; exact gain-pixel position, Display P3,
+  long crop, two crop/save/reopen cycles, invalid-geometry fallback all passed.
 - ShellTest: all checks pass using the local Xiaomi APK and local shell assets.
   PNG alpha, JPEG matte, annotation masks and editor-to-shell HDR retained.
 - RootSetup generate succeeded using symbol-dataflow detection on the loaded library.
@@ -35,6 +38,19 @@ Android runtime checks (Xiaomi 17 Ultra, OS4.0.4.0.XPACNXM, API 37):
 - Actual editor inspection exposed the newer ImageEditorView renderer, which does
   not use mDisplayBitmap. After adding its direct-source path, the actual editor
   window reports COLOR_MODE_HDR and the image's 1.7717645 headroom.
+- Animated dialog window blur sampled on-device at radii 0, 67 and 84, and removed
+  after the closing fade. The About page's LSPosed API 102 label was checked on
+  the installed cloud build, not only in source.
+
+Crop-frame transition correction:
+- Whole-window alpha animation removed. Only ScreenCropView.mCropWindow is faded;
+  the mask, editor picture, background and toolbars keep their native behavior.
+- At native dismiss, wait for the editor's rendered frame to be committed before
+  hiding only the original thumbnail image content. Its excluded overlay remains
+  for the bloom fade; it cannot cover the crop frame during its appearance.
+- CropFrameAlphaTest renders both actual Xiaomi crop-frame resources at five
+  fractions and checks their footprint, gain metadata and exception cleanup.
+  This test is cloud-compiled; device execution is recorded separately.
 
 No device reboot, SurfaceFlinger restart, system screenshot APK replacement,
 or mount-provider configuration modification was performed.

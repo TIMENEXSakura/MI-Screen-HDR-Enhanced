@@ -12,7 +12,7 @@ public final class PrecisionBenchmark {
    long start=System.nanoTime();Bitmap precise=GainmapPrecision.apply(input);long middle=System.nanoTime();
    byte[] jpeg=HdrJpeg444.encode(precise);long end=System.nanoTime();bytes=jpeg.length;
    if(i>=0){rebase[i]=middle-start;encode[i]=end-middle;}
-   precise.recycle();
+   if(precise!=input)precise.recycle();
   }
   Arrays.sort(rebase);Arrays.sort(encode);
   System.out.println("BENCH width="+input.getWidth()+" height="+input.getHeight()+" rebaseMedianMs="+rebase[3]/1e6+" jpegMedianMs="+encode[3]/1e6+" bytes="+bytes);

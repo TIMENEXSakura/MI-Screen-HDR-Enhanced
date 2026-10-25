@@ -6,7 +6,7 @@ HDR_TEST_OUT=${HDR_TEST_OUT:-$HDR_REPO/build/image-tests}
 HDR_PLATFORM_JAR=${HDR_PLATFORM_JAR:-${ANDROID_HOME:?Set ANDROID_HOME}/platforms/android-37.0/android.jar}
 HDR_D8_JAR=${HDR_D8_JAR:-$ANDROID_HOME/build-tools/37.0.0/lib/d8.jar}
 mkdir -p "$HDR_TEST_OUT/src/dev/local/miuihdr" "$HDR_TEST_OUT/classes" "$HDR_TEST_OUT/dex"
-for name in NativeBridge GainmapPrecision HdrJpeg444 HdrSignal PreviewHdr ShellGainmap EditorGainmap CaptureRatio; do
+for name in NativeBridge GainmapPrecision HdrJpeg444 HdrSignal PreviewHdr ShellGainmap EditorGainmap CaptureRatio CaptureAudit; do
  cp "$HDR_REPO/src/dev/local/miuihdr/$name.java" "$HDR_TEST_OUT/src/dev/local/miuihdr/"
 done
 for name in PrecisionCodecTest PrecisionBenchmark PreviewHdrTest ShellTest EditorGainmapTest; do

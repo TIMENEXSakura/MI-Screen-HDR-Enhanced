@@ -41,6 +41,13 @@ public final class GainmapPrecision {
             for(int i=0;i<256;i++) transfer[i]=(float)eotf.applyAsDouble(i/255.0);
             int count=NativeBridge.rebaseGainmap(base,map,result,out,params,transfer);
             if(count<0) throw new IllegalStateException("Precision compositor rejected image: "+count);
+            CaptureAudit.precision(count,source,map);
+            if(count==0) {
+                // Zero above-white pixels does not mean that the original gainmap is empty.
+                // Retain its SDR/HDR separation instead of absorbing all gain into the base.
+                android.util.Log.i("MiuiHdrHook","Precision gainmap retained: no pixels exceed SDR white; original base, gainmap and metadata preserved");
+                return source;
+            }
             Gainmap restored=new Gainmap(out);restored.setRatioMin(1,1,1);restored.setRatioMax(params[18],params[19],params[20]);
             restored.setGamma(1,1,1);restored.setEpsilonSdr(1f/64,1f/64,1f/64);restored.setEpsilonHdr(1f/64,1f/64,1f/64);
             restored.setMinDisplayRatioForHdrTransition(gm.getMinDisplayRatioForHdrTransition());

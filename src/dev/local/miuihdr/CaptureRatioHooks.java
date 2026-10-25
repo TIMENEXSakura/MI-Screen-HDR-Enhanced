@@ -30,8 +30,10 @@ final class CaptureRatioHooks {
    HookRuntime.add(type.getDeclaredMethod("asBitmap"),new Callback(){protected void after(Call p){
     Sample sample=ACTIVE.get();if(sample==null||p.hasThrowable()||!(p.getResult() instanceof Bitmap))return;
     try{
-     if(Boolean.TRUE.equals(secure.invoke(p.thisObject))||!Boolean.TRUE.equals(hasHdr.invoke(p.thisObject)))return;
+     boolean protectedFrame=Boolean.TRUE.equals(secure.invoke(p.thisObject)),hdr=Boolean.TRUE.equals(hasHdr.invoke(p.thisObject));
      Bitmap bitmap=(Bitmap)p.getResult();float original=nativeRatio.getFloat(p.thisObject);
+     CaptureAudit.nativeBuffer(p.thisObject,bitmap,hdr,protectedFrame,original);
+     if(protectedFrame||!hdr)return;
      if(CaptureRatio.apply(bitmap,original,sample.display,sample.mode,sample.offset,sample.forced))MiuiHook.log("Capture gainmap ratio corrected "+original+" -> "+bitmap.getGainmap().getDisplayRatioForFullHdr()+" mode="+sample.mode);
      if(!bitmap.hasGainmap())MiuiHook.log("HDR capture has no gainmap buffer; ratio alone cannot recover highlights");
     }catch(Throwable t){MiuiHook.log("Capture ratio unchanged: "+t);}

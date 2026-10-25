@@ -62,8 +62,19 @@ public final class MiuiHook {
   }catch(Throwable t){log("Capture isolation unavailable: "+t);}
   try{
    Class<?> worker=cl.loadClass("com.miui.screenshot.hyper.TakeScreenshotExecutorImpl$processImageCapture$bitmap$1");
-   HookRuntime.add(worker.getDeclaredMethod("invokeSuspend",Object.class),new Callback(){protected void after(Call param){
-    if(!param.hasThrowable()&&param.getResult() instanceof Bitmap){Bitmap b=(Bitmap)param.getResult();try{Bitmap precise=PrecisionHooks.capture(b);if(precise!=b){param.setResult(precise);b=precise;}}catch(Throwable t){log("Pixel capture skipped; original retained: "+t);}log("Native capture "+b.getWidth()+"x"+b.getHeight()+" "+HdrSignal.inspect(b));}
+   HookRuntime.add(worker.getDeclaredMethod("invokeSuspend",Object.class),new Callback(){
+    protected void before(Call param){CaptureAudit.begin();}
+    protected void after(Call param){
+     Bitmap b=null;HdrSignal.Info info=null;
+     try{
+      if(!param.hasThrowable()&&param.getResult() instanceof Bitmap){b=(Bitmap)param.getResult();CaptureAudit.converted(b);
+       try{Bitmap precise=PrecisionHooks.capture(b);if(precise!=b){param.setResult(precise);b=precise;}}catch(Throwable t){log("Pixel capture skipped; original retained: "+t);}
+       info=HdrSignal.inspect(b);log("Native capture "+b.getWidth()+"x"+b.getHeight()+" "+info);
+      }
+     }finally{
+      android.content.Context context=null;try{context=HookObjects.currentApplication();}catch(Throwable ignored){}
+      CaptureAudit.end(context,b,info);
+     }
    }});
   }catch(Throwable t){log("Capture hook unavailable: "+t);}
   try{
@@ -124,6 +135,6 @@ public final class MiuiHook {
     });
    }
   }catch(Throwable t){log("Save observer unavailable: "+t);}
-  log("Installed native MIUI HDR hooks v1.5.2 process="+process);
+  log("Installed native MIUI HDR hooks v1.5.2-hdrfix.1 process="+process);
  }
 }

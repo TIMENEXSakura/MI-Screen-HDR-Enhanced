@@ -37,10 +37,11 @@ jobs:
       - name: Install the pinned Android toolchain
         shell: bash
         run: |
+          mkdir -p dist
           set +o pipefail
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
           set -o pipefail
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37" "build-tools;37.0.0" "ndk;$HDR_NDK_VERSION"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0" "ndk;$HDR_NDK_VERSION" 2>&1 | tee dist/toolchain.log
           echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$HDR_NDK_VERSION" >> "$GITHUB_ENV"
       - name: Build native code and the release APK
         shell: bash

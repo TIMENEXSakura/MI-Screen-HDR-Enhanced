@@ -99,7 +99,7 @@ internal object MountJob {
         if (value == "STAGE=prepare") writer.rootStarted = true
         if (value.startsWith("USER_LOG=未完成：")) writer.failureExplained = true
         if (event != null || stageName(value) != null) writer.controls.add(value)
-        // Only product-facing stage summaries and the selected library reach Compose.
+        // Keep stage summaries, selected library details and the root manager's install output.
         InstallProgress.userLine(value)?.let { writer.visible.append(stamp).append(it).append('\n') }
         if (!writer.warned && writer.failure != null) {
             writer.warned = true
@@ -240,8 +240,8 @@ internal object MountJob {
                 val selected = StringBuilder()
                 log.forEachLine { line ->
                     val content = line.substringAfter("] ", line)
-                    if (content.startsWith("USER_LOG=")) selected.append(content.removePrefix("USER_LOG=")).append('\n')
-                    else if (content.startsWith("[阶段 ")) selected.append(content).append('\n')
+                    val visible = InstallProgress.userLine(content)
+                    if (visible != null) selected.append(visible).append('\n')
                     else if (content.startsWith("LIBRARY_SELECTED=")) selected.append("目标库：").append(content.removePrefix("LIBRARY_SELECTED=")).append('\n')
                 }
                 text = selected.toString().takeLast(LOG_LIMIT)

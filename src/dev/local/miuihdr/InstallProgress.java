@@ -19,6 +19,7 @@ final class InstallProgress {
     static String userLine(String line) {
         if(line==null)return null;
         if(line.startsWith("USER_LOG="))return line.substring(9);
+        if(line.startsWith("INSTALLER_LOG="))return "[管理器] "+line.substring(14);
         return line.startsWith("[阶段 ")?line:null;
     }
 }

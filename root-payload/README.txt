@@ -1,10 +1,15 @@
-小米截屏HDR增强 / MI Screen HDR Enhanced 1.4.5 — 动态生成的挂载模块
+小米截屏HDR增强 / MI Screen HDR Enhanced — 动态生成的挂载模块
 
-此 ZIP 由 Xposed APK 的“生成挂载模块”在本机生成。
+此 ZIP 由 Xposed APK 生成。自动识别模式生成并安装本机对应的模块；
+手动选择 SO 时只导出离线模块，不对生成设备进行库匹配或刷入。
 APK 内只有生成器及脚本模板，不内置或分发某台设备的完整系统 SO。
 按实际 ELF 中的指令序列定位原实验模块的亮度限制补丁；不检查机型名称或固定 ROM 白名单。
 指令不存在、存在多处匹配、文件损坏或写入失败均作为生成错误退出，原库保持原样。
 生成时同时保存原库和补丁库；安装时发现系统库已经变化，需要在 APK 中重新生成。
+离线导出包不保存生成设备的目标路径或挂载配置。安装时才在目标设备的
+system / system_ext / product / vendor 库目录及等价别名中按原版或补丁版 SHA-256
+唯一确定目标库；找不到或多个独立库匹配时停止安装。仅相同内容的系统库可用，
+离线导出不意味着同一个 ZIP 可以用于任意机型或任意系统版本。
 
 目标：按 SurfaceFlinger 实际加载映射和系统库目录定位 libsurfaceflinger.so。
 搜索 system / system_ext / product / vendor / odm、system_root 别名及 APEX 下的 lib/lib64。

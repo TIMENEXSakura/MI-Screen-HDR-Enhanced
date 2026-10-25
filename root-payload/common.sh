@@ -1,17 +1,21 @@
 #!/system/bin/sh
 . "$MODDIR/backend.sh"
+hdr_payload_for() {
+ local target="$1"
+ case "$target" in *[!A-Za-z0-9_./+@-]*|*'/../'*|*'/./'*|*'//'*) return 1;; esac
+ case "$target" in */lib*.so) ;; *) return 1;; esac
+ case "$target" in
+  /system/lib/*|/system/lib64/*|/system/system_ext/lib/*|/system/system_ext/lib64/*|/system/product/lib/*|/system/product/lib64/*|/system/vendor/lib/*|/system/vendor/lib64/*) printf '%s\n' "${target#/}";;
+  /system_ext/lib/*|/system_ext/lib64/*|/product/lib/*|/product/lib64/*|/vendor/lib/*|/vendor/lib64/*) printf 'system%s\n' "$target";;
+  *) return 1;;
+ esac
+}
 hdr_load_target() {
  [ -f "$MODDIR/target.path" ] && [ -f "$MODDIR/payload.path" ] || return 1
  local target payload expected
  target=$(cat "$MODDIR/target.path")
  payload=$(cat "$MODDIR/payload.path")
- case "$target" in *[!A-Za-z0-9_./+@-]*|*'/../'*|*'/./'*|*'//'*) return 1;; esac
- case "$target" in */lib*.so) ;; *) return 1;; esac
- case "$target" in
-  /system/lib/*|/system/lib64/*|/system/system_ext/lib/*|/system/system_ext/lib64/*|/system/product/lib/*|/system/product/lib64/*|/system/vendor/lib/*|/system/vendor/lib64/*) expected=${target#/};;
-  /system_ext/lib/*|/system_ext/lib64/*|/product/lib/*|/product/lib64/*|/vendor/lib/*|/vendor/lib64/*) expected=system$target;;
-  *) return 1;;
- esac
+ expected=$(hdr_payload_for "$target") || return 1
  [ "$payload" = "$expected" ] || return 1
  # Explicit HDR_TARGET overrides are used by isolated host tests.
  HDR_TARGET=${HDR_TARGET:-$target}

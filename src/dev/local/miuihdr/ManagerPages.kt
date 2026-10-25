@@ -50,7 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val RELEASE = "1.5.1"
+private const val RELEASE = "1.5.2"
 private const val PROJECT = "https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced"
 
 @Composable
@@ -120,10 +120,10 @@ internal fun ManagerHome(onInstall: () -> Unit, onTest: () -> Unit, onSettings: 
                     Text("API 102", Modifier.padding(horizontal = 10.dp, vertical = 4.dp), style = MaterialTheme.typography.labelMedium)
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(if (MountJob.busy) "正在安装" else if (MountJob.success) "安装完成" else "截屏增强",
+                    Text(if (MountJob.busy) "正在${MountJob.actionName}" else if (MountJob.success) "${MountJob.actionName}完成" else "截屏增强",
                         style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Black)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (MountJob.busy) MountJob.phase else if (MountJob.success) "点按重新安装或更新" else "点按安装或更新底层修复",
+                        Text(if (MountJob.busy) MountJob.phase else "点按安装或导出挂载模块",
                             modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, Modifier.size(20.dp))
                     }
@@ -144,7 +144,7 @@ internal fun ManagerHome(onInstall: () -> Unit, onTest: () -> Unit, onSettings: 
             }
         }
         Segments {
-            ManagerLink("安装记录", "查看修补与挂载日志", Icons.Default.Terminal, true, onLog)
+            ManagerLink("任务记录", "查看安装与导出日志", Icons.Default.Terminal, true, onLog)
             ManagerLink("关于", "开源项目与许可", Icons.Default.Info, false, onAbout)
         }
     }
@@ -220,10 +220,10 @@ internal fun ManagerInstall(onBack: () -> Unit, onInstall: (Uri?) -> Unit) {
             } } catch (_: Exception) { null }
         }
     }
-    ManagerScaffold("安装", onBack, collapse = true) {
+    ManagerScaffold("安装与导出", onBack, collapse = true) {
         Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            InstallOption("自动识别并修补", "识别本机正在使用的运行库，生成并安装挂载模块。", method == 0) { method = 0 }
-            InstallOption("选择原始 SO 文件", "使用从本机当前系统提取的库进行匹配和修补。", method == 1) {
+            InstallOption("自动识别并安装", "识别本机正在使用的运行库，生成并安装挂载模块。", method == 0) { method = 0 }
+            InstallOption("选择 SO 文件并导出", "修补所选设备的原始库，导出 ZIP 包供对应设备安装。", method == 1) {
                 method = 1; picker.launch(arrayOf("*/*"))
             }
         }
@@ -242,14 +242,20 @@ internal fun ManagerInstall(onBack: () -> Unit, onInstall: (Uri?) -> Unit) {
         }
         Surface(shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceBright) {
             Column {
-                InfoRow("挂载方式", "自动适配当前 Root 环境")
-                InfoRow("原始运行库", "自动备份，异常时保留原库")
-                InfoRow("安装之后", "重启设备后加载", last = true)
+                if (method == 1) {
+                    InfoRow("保存位置", "Download/MI-Screen-HDR-Enhanced")
+                    InfoRow("使用范围", "原始库对应的设备及系统版本")
+                    InfoRow("安装方式", "在目标设备的 Root 管理器中选择 ZIP", last = true)
+                } else {
+                    InfoRow("挂载方式", "自动适配当前 Root 环境")
+                    InfoRow("原始运行库", "自动备份，异常时保留原库")
+                    InfoRow("安装之后", "重启设备后加载", last = true)
+                }
             }
         }
         Button(onClick = { onInstall(if(method == 1) Uri.parse(selectedUri!!) else null) },
             enabled = !MountJob.busy && (method == 0 || selectedUri != null), modifier = Modifier.fillMaxWidth()) {
-            Text("下一步")
+            Text(if (method == 1) "修补并导出" else "安装")
         }
     }
 }
@@ -296,14 +302,14 @@ internal fun ManagerFlash(onBack: () -> Unit) {
     }
     LaunchedEffect(snapshot, scroll.maxValue) { if(MountJob.busy) scroll.animateScrollTo(scroll.maxValue) }
     Scaffold(containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        topBar = { TopAppBar(title = { Text(if(MountJob.busy) "正在安装" else if(MountJob.success) "安装成功" else "安装记录") },
+        topBar = { TopAppBar(title = { Text(if(MountJob.busy) "正在${MountJob.actionName}" else if(MountJob.success) "${MountJob.actionName}成功" else "${MountJob.actionName}记录") },
             navigationIcon = { IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") } },
             actions = { IconButton(onClick = {
                 preparingExport = true
                 scope.launch {
                     try {
                         exportText = withContext(Dispatchers.IO) { MountJob.exportLog(context) }
-                        save.launch("MI-Screen-HDR-Enhanced-$RELEASE-install.txt")
+                        save.launch("MI-Screen-HDR-Enhanced-$RELEASE-${MountJob.mode}.txt")
                     } catch (e: Exception) {
                         Toast.makeText(context, "读取完整日志失败：${e.message}", Toast.LENGTH_LONG).show()
                     } finally { preparingExport = false }
@@ -324,12 +330,18 @@ internal fun ManagerFlash(onBack: () -> Unit) {
                 }
             }
             if(!MountJob.busy && MountJob.status != null) Text(MountJob.status!!, style = MaterialTheme.typography.bodyMedium)
+            if(!MountJob.busy && MountJob.success && MountJob.isExport && MountJob.generatedZip != null) {
+                androidx.compose.foundation.text.selection.SelectionContainer {
+                    Text("保存位置：${MountJob.generatedZip}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             if(MountJob.truncated) Text("当前显示日志末尾；右上角可保存完整记录。",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Surface(modifier = Modifier.fillMaxWidth().weight(1f), shape = RoundedCornerShape(20.dp),
                 color = MaterialTheme.colorScheme.surfaceBright, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 androidx.compose.foundation.text.selection.SelectionContainer {
-                    Text(if(snapshot.isEmpty()) "还没有安装记录。\n从主页状态卡进入安装。" else snapshot,
+                    Text(if(snapshot.isEmpty()) "还没有任务记录。\n从主页状态卡进入安装与导出。" else snapshot,
                         Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp).padding(bottom = 80.dp),
                         style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
                 }

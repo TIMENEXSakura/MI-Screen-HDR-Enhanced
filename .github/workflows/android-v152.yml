@@ -1,8 +1,8 @@
-name: Android 1.5.1 · build and checks
+name: Android 1.5.2 · build and checks
 
 on:
   push:
-    branches: ["main", "release/1.5.1"]
+    branches: ["main", "release/1.5.2"]
   pull_request:
   workflow_dispatch:
 
@@ -65,7 +65,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: MI-Screen-HDR-Enhanced-1.5.1-${{ github.run_number }}
+          name: MI-Screen-HDR-Enhanced-1.5.2-${{ github.run_number }}
           path: dist/
           if-no-files-found: error
           retention-days: 90

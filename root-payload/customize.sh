@@ -4,6 +4,13 @@
 [ "${APATCH_LATE_LOAD:-0}" != 1 ] || abort "Boot-time mounting unavailable in late-load mode."
 MODDIR=$MODPATH
 . "$MODPATH/common.sh"
+if [ -e "$MODPATH/offline-export" ]; then
+ [ -f "$MODPATH/offline.sh" ] || abort "离线模块缺少安装定位脚本，请重新导出。"
+ . "$MODPATH/offline.sh"
+ hdr_offline_prepare || abort "$HDR_OFFLINE_ERROR"
+ HDR_CONFIG_OK=0
+ if hdr_load_target; then HDR_CONFIG_OK=1; fi
+fi
 [ "$HDR_CONFIG_OK" = 1 ] || abort "Missing or invalid library target; regenerate in the Xposed APK."
 HDR_BACKEND_CHECK=$(hdr_backend_check) || abort "$HDR_BACKEND_CHECK"
 hdr_backend_report > "$MODPATH/mount-backend.txt"

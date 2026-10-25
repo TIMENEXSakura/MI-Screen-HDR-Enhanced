@@ -3,6 +3,7 @@ set -euo pipefail
 HDR_REPO=$(cd "$(dirname "$0")/.." && pwd)
 cd "$HDR_REPO"
 python3 tests/test_mount_recovery.py
+python3 tests/test_offline_export.py
 python3 tests/test_patch_probe.py
 python3 tests/test_semantic_patch.py
 mkdir -p build/host-tests

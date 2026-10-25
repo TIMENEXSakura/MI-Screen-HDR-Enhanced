@@ -16,7 +16,7 @@ import java.util.Locale
 import java.util.Date
 import java.text.SimpleDateFormat
 
-/** One application-lifetime installer, with a full on-disk log and bounded UI tail. */
+/** One application-lifetime install/export job, with a full on-disk log and bounded UI tail. */
 internal object MountJob {
     private const val LOG_LIMIT = 96000
     private const val LOG_FILE = "last-install.log"
@@ -29,6 +29,11 @@ internal object MountJob {
     var text by mutableStateOf(""); private set
     var truncated by mutableStateOf(false); private set
     var logLocation by mutableStateOf<String?>(null); private set
+    var mode by mutableStateOf("install"); private set
+    var generatedZip by mutableStateOf<String?>(null); private set
+    val isExport: Boolean get() = mode == "export"
+    val actionName: String get() = if (isExport) "导出" else "安装"
+    val completedPhase: String get() = if (isExport) "导出完成" else "刷入完成"
     private var incompleteLog = false
     /** A diagnostic write failure must never abandon a still-running root installer. */
     private class InstallLog(file: File) : Closeable {
@@ -53,7 +58,8 @@ internal object MountJob {
     private fun stageName(value: String): String? = when(value) {
         "STAGE=prepare" -> "开始阶段"; "STAGE=discover" -> "扫描阶段"; "STAGE=library" -> "获取到库"
         "STAGE=offset" -> "获取到偏移量"; "STAGE=patch" -> "开始修补"
-        "STAGE=install" -> "修补完成，正在刷入"; "STAGE=complete" -> "刷入完成"; else -> null
+        "STAGE=install" -> "修补完成，正在刷入"; "STAGE=complete" -> "刷入完成"
+        "STAGE=export" -> "修补完成，正在导出"; "STAGE=export_complete" -> "导出完成"; else -> null
     }
     private fun appendUi(displayed: String) {
         val combined = text + displayed
@@ -68,6 +74,9 @@ internal object MountJob {
             }
         }
         stageName(value)?.let { phase = it }
+        if (value.startsWith("GENERATED_ZIP=")) {
+            generatedZip = value.removePrefix("GENERATED_ZIP=").trim().takeIf { it.isNotEmpty() }
+        }
     }
     private fun timestamp(started: Long): String {
         val elapsed = SystemClock.elapsedRealtime() - started
@@ -84,10 +93,11 @@ internal object MountJob {
             controls.forEach(::control)
             appendUi(visible)
             if (writer.failure != null) incompleteLog = true
-            if (progress != previous || phase != previousPhase) prefs.edit()
-                .putInt("last_install_progress", progress).putString("last_install_phase", phase)
-                .putString("detail", text).putInt("install_log_ui_version", 3)
-                .putBoolean("last_install_log_incomplete", incompleteLog).apply()
+            if (progress != previous || phase != previousPhase || controls.any { it.startsWith("GENERATED_ZIP=") }) prefs.edit()
+                .putInt("last_job_progress", progress).putString("last_job_phase", phase)
+                .putString("last_job_detail", text).putInt("install_log_ui_version", 3)
+                .putString("last_job_generated_zip", generatedZip)
+                .putBoolean("last_job_log_incomplete", incompleteLog).apply()
         }
         writer.lastUiFlush = SystemClock.elapsedRealtime()
     }
@@ -98,18 +108,18 @@ internal object MountJob {
         writer.append(stamp + body)
         if (value == "STAGE=prepare") writer.rootStarted = true
         if (value.startsWith("USER_LOG=未完成：")) writer.failureExplained = true
-        if (event != null || stageName(value) != null) writer.controls.add(value)
+        if (event != null || stageName(value) != null || value.startsWith("GENERATED_ZIP=")) writer.controls.add(value)
         // Keep stage summaries, selected library details and the root manager's install output.
         InstallProgress.userLine(value)?.let { writer.visible.append(it).append('\n') }
         if (!writer.warned && writer.failure != null) {
             writer.warned = true
-            writer.visible.append("详细日志写入失败，正在等待实际安装结果。\n")
+            writer.visible.append("详细日志写入失败，正在等待实际${actionName}结果。\n")
         }
         flushUi(writer, prefs, value.startsWith("[阶段 "))
     }
     private fun publishLog(context: Context): String {
         val folder = "${Environment.DIRECTORY_DOWNLOADS}/MI-Screen-HDR-Enhanced/logs"
-        val name = "install-1.5.1-${SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.ROOT).format(Date())}.txt"
+        val name = "$mode-1.5.2-${SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.ROOT).format(Date())}.txt"
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
@@ -141,11 +151,13 @@ internal object MountJob {
         val prefs = app.getSharedPreferences("local_status", Context.MODE_PRIVATE)
         val log = File(app.filesDir, LOG_FILE)
         val started = SystemClock.elapsedRealtime()
-        busy = true; success = false; text = ""; truncated = false; incompleteLog = false; logLocation = null; status = null; phase = "开始阶段"; progress = 0
-        prefs.edit().putBoolean("install_in_progress", true).putBoolean("last_install_success", false)
-            .putInt("last_install_progress", 0).putString("last_install_phase", phase).putString("detail", "")
-            .putBoolean("last_install_log_incomplete", false).putString("last_install_log_location", null)
-            .putInt("install_log_ui_version", 3).putString("result", "安装尚未完成").apply()
+        mode = if (uri == null) "install" else "export"
+        busy = true; success = false; text = ""; truncated = false; incompleteLog = false; logLocation = null; generatedZip = null; status = null; phase = "开始阶段"; progress = 0
+        prefs.edit().putString("last_job_mode", mode).putBoolean("job_in_progress", true).putBoolean("last_job_success", false)
+            .putInt("last_job_progress", 0).putString("last_job_phase", phase).putString("last_job_detail", "")
+            .putBoolean("last_job_log_incomplete", false).putString("last_job_log_location", null)
+            .putString("last_job_generated_zip", null)
+            .putInt("install_log_ui_version", 3).putString("last_job_result", "${actionName}尚未完成").apply()
         scope.launch {
             var imported: File? = null
             var installLog: InstallLog? = null
@@ -153,7 +165,7 @@ internal object MountJob {
                 val result = withContext(Dispatchers.IO) {
                     InstallLog(log).also { installLog = it }.use { writer ->
                         try {
-                        emit(writer, prefs, started, "USER_LOG=准备安装，检查输入文件并请求 Root 权限。")
+                        emit(writer, prefs, started, "USER_LOG=准备${actionName}，检查输入文件并请求 Root 权限。")
                         if (uri != null) {
                             val length = try { app.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use {
                                 if (it.moveToFirst() && !it.isNull(0)) it.getLong(0).takeIf { n -> n > 0 } else null
@@ -178,40 +190,45 @@ internal object MountJob {
                             }
                         } else emit(writer, prefs, started, "USER_LOG=输入方式：自动查找本机截屏所需的运行库。")
                         emit(writer, prefs, started, "PROGRESS=4|开始阶段")
-                        emit(writer, prefs, started, "USER_LOG=请求 Root 权限，准备安装。")
+                        emit(writer, prefs, started, "USER_LOG=请求 Root 权限，准备${actionName}。")
                         flushUi(writer, prefs, true)
                         val apk = app.applicationInfo.sourceDir
-                        val command = "export PATH=/system/bin:/system/xbin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk; CLASSPATH=${quote(apk)} /system/bin/app_process /system/bin dev.local.miuihdr.RootSetup ${quote(apk)} install${imported?.let { " " + quote(it.absolutePath) } ?: ""}"
+                        val command = "export PATH=/system/bin:/system/xbin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk; CLASSPATH=${quote(apk)} /system/bin/app_process /system/bin dev.local.miuihdr.RootSetup ${quote(apk)} $mode${imported?.let { " " + quote(it.absolutePath) } ?: ""}"
                         val process = ProcessBuilder("su", "-c", command).redirectErrorStream(true).start()
                         process.inputStream.bufferedReader().use { reader ->
                             while (true) { val next = reader.readLine() ?: break; emit(writer, prefs, started, next) }
                         }
                         process.waitFor().also {
-                            emit(writer, prefs, started, "安装进程退出码：$it（0 表示成功）。")
+                            emit(writer, prefs, started, "${actionName}进程退出码：$it（0 表示成功）。")
                             if (it != 0 && !writer.failureExplained) {
-                                val reason = if (writer.rootStarted) "安装进程提前结束" else "Root 安装进程未能启动，请检查 Root 授权"
+                                val reason = if (writer.rootStarted) "${actionName}进程提前结束" else "Root ${actionName}进程未能启动，请检查 Root 授权"
                                 emit(writer, prefs, started, "USER_LOG=未完成：$reason（退出码 $it）；具体错误请查看完整日志。")
                             }
                         }
                         } finally { flushUi(writer, prefs, true) }
                     }
                 }
-                success = result == 0
+                success = result == 0 && (!isExport || !generatedZip.isNullOrEmpty())
                 progress = InstallProgress.finish(progress, success)
-                if (success) phase = "刷入完成"
-                status = if (success) "挂载模块已刷入，重启设备后加载。" else "安装未完成，停留在“$phase”（$progress%）。请查看下方失败原因。"
+                if (success) phase = completedPhase
+                status = when {
+                    success && isExport -> "挂载模块已导出，可在对应设备及系统版本上安装。"
+                    success -> "挂载模块已刷入，重启设备后加载。"
+                    result == 0 && isExport -> "导出未完成：未收到生成包的保存路径。请查看完整日志。"
+                    else -> "${actionName}未完成，停留在“$phase”（$progress%）。请查看下方失败原因。"
+                }
             } catch (e: Exception) {
                 success = false; progress = InstallProgress.finish(progress, false)
-                status = "安装未完成，停留在“$phase”（$progress%）：${e.message ?: "无法启动安装器"}"
+                status = "${actionName}未完成，停留在“$phase”（$progress%）：${e.message ?: "无法启动任务"}"
             } finally {
                 incompleteLog = incompleteLog || installLog == null || installLog?.failure != null
                 if (incompleteLog) status = "$status 日志文件保存不完整，请查看当前界面记录。"
-                val summary = timestamp(started) + (status ?: "安装结果未确认")
+                val summary = timestamp(started) + (status ?: "${actionName}结果未确认")
                 withContext(Dispatchers.IO) {
                     try { log.appendText(summary + "\n") } catch (_: Exception) { }
                     imported?.delete()
                 }
-                appendUi((status ?: "安装结果未确认") + "\n")
+                appendUi((status ?: "${actionName}结果未确认") + "\n")
                 try {
                     logLocation = withContext(Dispatchers.IO) { publishLog(app) }
                     appendUi(if (incompleteLog) "日志已保存（记录不完整）：$logLocation\n" else "完整日志已保存：$logLocation\n")
@@ -219,22 +236,29 @@ internal object MountJob {
                     appendUi("完整日志自动保存失败：${e.message}；可使用右上角保存按钮。\n")
                 }
                 busy = false
-                prefs.edit().putString("result", status).putString("detail", text)
-                    .putString("last_install_log_location", logLocation).putInt("install_log_ui_version", 3)
-                    .putBoolean("last_install_success", success).putBoolean("install_in_progress", false)
-                    .putBoolean("last_install_log_incomplete", incompleteLog)
-                    .putInt("last_install_progress", progress).putString("last_install_phase", phase)
-                    .putString("installed_version", if (success) "1.5.1" else "").apply()
+                prefs.edit().putString("last_job_result", status).putString("last_job_detail", text)
+                    .putString("last_job_log_location", logLocation).putInt("install_log_ui_version", 3)
+                    .putBoolean("last_job_success", success).putBoolean("job_in_progress", false)
+                    .putBoolean("last_job_log_incomplete", incompleteLog)
+                    .putString("last_job_generated_zip", generatedZip)
+                    .putInt("last_job_progress", progress).putString("last_job_phase", phase)
+                    .apply { if (!isExport && success) putString("installed_version", "1.5.2") }.apply()
             }
         }
     }
     fun restore(context: Context) {
         if (busy || text.isNotEmpty()) return
         val p = context.getSharedPreferences("local_status", Context.MODE_PRIVATE)
-        text = p.getString("detail", "") ?: ""; status = p.getString("result", null)
-        incompleteLog = p.getBoolean("last_install_log_incomplete", false)
-        logLocation = p.getString("last_install_log_location", null)
-        if (p.getInt("install_log_ui_version", 0) < 3 || p.getBoolean("install_in_progress", false)) {
+        val hasJob = p.contains("last_job_mode")
+        fun key(current: String, legacy: String) = if (hasJob) current else legacy
+        mode = if (p.getString("last_job_mode", "install") == "export") "export" else "install"
+        text = p.getString(key("last_job_detail", "detail"), "") ?: ""
+        status = p.getString(key("last_job_result", "result"), null)
+        incompleteLog = p.getBoolean(key("last_job_log_incomplete", "last_install_log_incomplete"), false)
+        logLocation = p.getString(key("last_job_log_location", "last_install_log_location"), null)
+        generatedZip = if (hasJob) p.getString("last_job_generated_zip", null) else null
+        val interrupted = p.getBoolean(key("job_in_progress", "install_in_progress"), false)
+        if (p.getInt("install_log_ui_version", 0) < 3 || interrupted) {
             val log = File(context.filesDir, LOG_FILE)
             if (log.isFile) try {
                 val selected = StringBuilder()
@@ -246,12 +270,11 @@ internal object MountJob {
                 }
                 text = selected.toString().takeLast(LOG_LIMIT)
             } catch (_: Exception) { text = "完整记录可使用右上角保存按钮导出。" }
-            else text = "上次安装结果见上方状态。"
+            else text = "上次${actionName}结果见上方状态。"
         }
-        val interrupted = p.getBoolean("install_in_progress", false)
-        success = p.getBoolean("last_install_success", false) && !interrupted
-        progress = if (success) 100 else p.getInt("last_install_progress", 0).coerceIn(0, 99)
-        phase = if (success) "刷入完成" else p.getString("last_install_phase", "开始阶段") ?: "开始阶段"
-        if (interrupted) status = "上次安装记录中断，结果尚未确认（$progress%）。请查看日志。"
+        success = p.getBoolean(key("last_job_success", "last_install_success"), false) && !interrupted
+        progress = if (success) 100 else p.getInt(key("last_job_progress", "last_install_progress"), 0).coerceIn(0, 99)
+        phase = if (success) completedPhase else p.getString(key("last_job_phase", "last_install_phase"), "开始阶段") ?: "开始阶段"
+        if (interrupted) status = "上次${actionName}记录中断，结果尚未确认（$progress%）。请查看日志。"
     }
 }

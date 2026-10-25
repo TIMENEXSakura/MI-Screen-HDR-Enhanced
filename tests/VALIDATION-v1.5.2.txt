@@ -1,0 +1,12 @@
+MI Screen HDR Enhanced 1.5.2 validation scope
+
+Build and host checks run in GitHub Actions. APK signing uses the existing private release key locally; no app/native code is compiled locally.
+
+Changes under test:
+- Automatic local generate/install still uses loaded-library discovery and the current root manager.
+- Manual SO selection invokes export only, validates the input and both generated ELF states, and exports a ZIP without generation-device target paths.
+- Offline ZIP installation resolves the target by original/patched content hash on the installation device. Alias paths are deduplicated; missing, changed, damaged, ambiguous and unsupported targets are rejected.
+- Export success has separate UI state and progress; it does not change the installed version or invoke an installer, set screenshot properties, or disable other modules.
+
+The published VALIDATION-1.5.2.txt asset adds exact CI provenance, executed check counts and device results.
+No claim of cross-device visual HDR, all mount-provider cold boots, or Dolby Vision capture coverage is made by these installer checks.

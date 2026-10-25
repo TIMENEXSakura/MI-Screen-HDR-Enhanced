@@ -7,9 +7,9 @@ import java.util.function.Consumer;
 import java.util.regex.*;
 import java.util.zip.*;
 
-/** The APK generates a device-local mount ZIP; it never ships a system SO. */
+/** Generate a local install or an offline export; the APK never ships a system SO. */
 public final class RootSetup {
- private static final String VERSION="1.5.1";
+ private static final String VERSION="1.5.2";
  private static final Pattern PATCH_OFFSET=Pattern.compile("(?:^| )file_offset=(0x[0-9a-fA-F]+)(?: |$)");
  private static final class Log implements AutoCloseable {
   private final List<String> pending=new ArrayList<>();
@@ -18,6 +18,7 @@ public final class RootSetup {
   private int percent=-1;
   private String detail="";
   private String stageLabel="开始阶段";
+  boolean exportOnly;
   void attach(Path path)throws IOException{
    report=path;writer=Files.newBufferedWriter(path,StandardCharsets.UTF_8);
    for(String line:pending){writer.write(line);writer.newLine();}pending.clear();writer.flush();
@@ -39,12 +40,18 @@ public final class RootSetup {
    percent=value;detail=label;line("进度说明："+label);line("PROGRESS="+value+"|"+stageLabel);
   }
   void stage(String stage){
+   if(stage.equals("export")||stage.equals("export_complete")){
+    boolean complete=stage.equals("export_complete");stageLabel=complete?"导出完成":"修补完成，正在导出";
+    line("STAGE="+stage);line("[阶段 "+(complete?7:6)+"/7 · "+stageLabel+"] "+
+      (complete?"模块 ZIP 已保存，未在本机安装。":"正在生成模块 ZIP，请稍候。"));return;
+   }
    String[] keys={"prepare","discover","library","offset","patch","install","complete"};
    String[] titles={"开始阶段","扫描阶段","获取到库","获取到偏移量","开始修补","修补完成，正在刷入","刷入完成"};
    String[] descriptions={"正在检查安装文件与 Root 环境。","正在查找匹配的运行库，请稍候。",
      "已找到对应文件，正在核对库信息。","已定位需要修补的位置，地址如下。",
      "正在备份原始文件、修补并校验。","正在刷入挂载模块，请稍候。",
      "安装完成，重启设备后加载。"};
+   if(exportOnly){descriptions[0]="正在检查所选文件与导出环境。";descriptions[1]="正在检查所选库的 HDR 截屏实现，请稍候。";}
    for(int i=0;i<keys.length;i++)if(keys[i].equals(stage)){
     stageLabel=titles[i];line("STAGE="+stage);line("[阶段 "+(i+1)+"/7 · "+stageLabel+"] "+descriptions[i]);return;
    }
@@ -52,7 +59,7 @@ public final class RootSetup {
   }
   private void disableFileLog(IOException error){
    BufferedWriter broken=writer;writer=null;
-   System.out.println("USER_LOG=诊断文件写入失败，后续完整记录由应用继续保存，不会中断刷入。路径："+report);System.out.flush();
+   System.out.println("USER_LOG=诊断文件写入失败，后续完整记录由应用继续保存，不会中断当前任务。路径："+report);System.out.flush();
    if(broken!=null)try{broken.close();}catch(IOException ignored){}
   }
   @Override public void close(){if(writer!=null)try{writer.close();writer=null;}catch(IOException e){disableFileLog(e);}}
@@ -92,7 +99,7 @@ public final class RootSetup {
   if(line.startsWith("PACKAGE_BEGIN "))return "开始压缩模块，按条目及实际写入字节推进进度。";
   if(line.startsWith("PACKAGE_ENTRY "))return "压缩条目状态：writing 正在写入，complete 已完成；字节数如下。";
   if(line.startsWith("PACKAGE_COMPLETE "))return "压缩完成：列出文件数、输入字节总数和 ZIP 实际大小。";
-  if(line.startsWith("GENERATED_ZIP="))return "已导出本机挂载模块。";
+  if(line.startsWith("GENERATED_ZIP="))return "已导出挂载模块。";
   if(line.startsWith("ZIP_SHA256="))return "已生成 ZIP 的 SHA-256 校验值。";
   if(line.startsWith("ROOT_INSTALLER="))return "使用当前 Root 提供者对应的安装器。";
   if(line.startsWith("INSTALL_RESULT="))return "刷入结果如下；只有安装器退出成功后才进入完成阶段。";
@@ -103,7 +110,6 @@ public final class RootSetup {
   if(line.startsWith("TEMPLATE_ENTRY "))return "模块模板文件已读取，列出相对路径和字节数。";
   if(line.startsWith("TEMPLATE_COMPLETE "))return "模块模板解包完成。";
   if(line.startsWith("IMPORT_BEGIN "))return "正在读取用户导入的原始库。";
-  if(line.startsWith("IMPORT_COMPARE "))return "比较导入库和本机库恢复后的原始哈希，必须一致才可使用。";
   if(line.startsWith("OLD_MODULE_DISABLED "))return "已为旧版同功能模块保留禁用标记，避免重复启用。";
   if(line.startsWith("ROOT_")||line.startsWith("MOUNT_")||line.startsWith("METAMODULE=")||line.startsWith("VISIBLE_MOUNT=")||line.startsWith("BACKEND"))return "Root 与挂载环境信息如下；本次沿用已有挂载方式。";
   return null;
@@ -233,21 +239,7 @@ public final class RootSetup {
    }
   };
  }
- private static File generate(Log log,String apkPath,String importedPath)throws Exception{
-  log.stage("prepare");log.progress(5,"准备读取本机运行库");
-  String user=run(log,"current_user","/system/bin/am","get-current-user").trim();if(!user.matches("[0-9]+"))throw new IOException("无法确认下载目录所属用户");
-  Path downloads=Paths.get("/storage/emulated",user,"Download","MI-Screen-HDR-Enhanced");Files.createDirectories(downloads);
-  log.attach(downloads.resolve("mount-diagnostics-"+VERSION+".txt"));
-  LibraryLocator locator=new LibraryLocator(Paths.get("/"),new LibraryLocator.Observer(){
-   public void log(String line){log.line(line);}
-   public void progress(String phase,int done,int total){
-    if(phase.equals("discover"))log.progress(10+15*done/Math.max(1,total),"扫描运行库目录 "+done+"/"+total);
-    else log.progress(25+35*done/Math.max(1,total),done<total?"检查运行库 "+(done+1)+"/"+total:"运行库检查完成 "+done+"/"+total);
-   }
-  });
-  Path dir=Files.createTempDirectory(Paths.get("/data/local/tmp"),"mi-screen-hdr-");
-  log.line("WORK_DIRECTORY="+dir);
-  try{
+ private static void unpackTemplate(Log log,String apkPath,Path dir)throws Exception{
    log.line("TEMPLATE_BEGIN source="+apkPath+" entry=assets/mount-template.zip");
    try(ZipFile apk=new ZipFile(apkPath)){
     ZipEntry template=apk.getEntry("assets/mount-template.zip");if(template==null)throw new IOException("安装包缺少挂载模块模板");
@@ -262,19 +254,52 @@ public final class RootSetup {
      log.line("TEMPLATE_COMPLETE entries="+count+" bytes="+total);
     }
    }
+ }
+ private static File packageModule(Log log,Path dir,Path result,boolean replace)throws Exception{
+   Path temp=Files.createTempFile(result.getParent(),".mount-",".zip");
+   try{
+    List<Path> files;
+    try(java.util.stream.Stream<Path> walk=Files.walk(dir)){files=walk.filter(Files::isRegularFile).sorted().collect(java.util.stream.Collectors.toList());}
+    long total=0;for(Path file:files)total+=Files.size(file);log.line("PACKAGE_BEGIN entries="+files.size()+" input_bytes="+total);
+    long written=0;int index=0,lastPercent=75;byte[] block=new byte[65536];
+    try(ZipOutputStream zip=new ZipOutputStream(Files.newOutputStream(temp))){
+     for(Path file:files){String name=dir.relativize(file).toString();long size=Files.size(file),entryBytes=0;
+      log.line("PACKAGE_ENTRY index="+(++index)+" total="+files.size()+" name="+name+" bytes="+size+" status=writing");
+      zip.putNextEntry(new ZipEntry(name));
+      try(InputStream in=Files.newInputStream(file)){int n;while((n=in.read(block))>0){zip.write(block,0,n);written+=n;entryBytes+=n;
+       int progress=75+(int)(9*written/Math.max(1,total));
+       if(progress!=lastPercent){lastPercent=progress;log.progress(progress,"打包写入 "+written+"/"+total+" 字节");}
+      }}
+      zip.closeEntry();log.line("PACKAGE_ENTRY index="+index+" name="+name+" status=complete bytes="+entryBytes+" written_total="+written);
+     }
+    }
+    if(replace)Files.move(temp,result,StandardCopyOption.REPLACE_EXISTING);else Files.move(temp,result);result.toFile().setReadable(true,false);
+    log.line("PACKAGE_COMPLETE entries="+files.size()+" input_bytes="+written+" zip_bytes="+Files.size(result));
+   }finally{Files.deleteIfExists(temp);}
+   String zipHash=hash(log,"generated_zip",result);log.line("GENERATED_ZIP="+result);log.line("ZIP_SHA256="+zipHash);
+   log.user("模块 ZIP 已生成："+result);
+   log.progress(85,"模块 ZIP 已生成并计算 SHA-256");return result.toFile();
+ }
+ private static File generate(Log log,String apkPath)throws Exception{
+  log.stage("prepare");log.progress(5,"准备读取本机运行库");
+  String user=run(log,"current_user","/system/bin/am","get-current-user").trim();if(!user.matches("[0-9]+"))throw new IOException("无法确认下载目录所属用户");
+  Path downloads=Paths.get("/storage/emulated",user,"Download","MI-Screen-HDR-Enhanced");Files.createDirectories(downloads);
+  log.attach(downloads.resolve("mount-diagnostics-"+VERSION+".txt"));
+  LibraryLocator locator=new LibraryLocator(Paths.get("/"),new LibraryLocator.Observer(){
+   public void log(String line){log.line(line);}
+   public void progress(String phase,int done,int total){
+    if(phase.equals("discover"))log.progress(10+15*done/Math.max(1,total),"扫描运行库目录 "+done+"/"+total);
+    else log.progress(25+35*done/Math.max(1,total),done<total?"检查运行库 "+(done+1)+"/"+total:"运行库检查完成 "+done+"/"+total);
+   }
+  });
+  Path dir=Files.createTempDirectory(Paths.get("/data/local/tmp"),"mi-screen-hdr-");
+  log.line("WORK_DIRECTORY="+dir);
+  try{
+   unpackTemplate(log,apkPath,dir);
    File patcher=dir.resolve("bin/hdrpatch").toFile();if(!patcher.setExecutable(true,true))throw new IOException("补丁生成器不可执行");
    log.progress(7,"模块模板已读取，检查 Root 和挂载环境");
    try{run(log,"describe_mount_backend","/system/bin/sh",dir.resolve("backend.sh").toString(),"describe");}
    catch(IOException e){log.line("ROOT_ENV_UNAVAILABLE: "+e.getMessage());}
-   Path imported=null;
-   if(importedPath!=null){
-    Path source=Paths.get(importedPath);long length=Files.size(source);
-    if(!Files.isRegularFile(source)||length<64||length>128L*1024*1024)throw new IOException("IMPORT_INVALID: 原始 SO 文件大小无效");
-    imported=dir.resolve("import.so");log.line("IMPORT_BEGIN source="+source+" size="+length);Files.copy(source,imported);
-    hash(log,"imported_so",imported);run(log,"probe_import",patcher.getPath(),"probe",imported.toString());
-   }
-   final Path input=imported;
-   final String importHash=input==null?null:NativeBridge.sha256(input.toString());
    List<String> mapped=new ArrayList<>();List<ProcessMapping> mappings=new ArrayList<>();
    log.progress(9,"读取 SurfaceFlinger 进程映射快照");
    try{
@@ -294,14 +319,6 @@ public final class RootSetup {
      ProbeDetails info=new ProbeDetails();Consumer<String> runtime=runtimeDetails(log,mappings,candidate);
      run(log,"probe_candidate",line->{info.accept(line);runtime.accept(line);},patcher.getPath(),"probe",candidate.file.toString());
      details.put(candidate.file,info);
-     if(input!=null&&!importHash.equals(hash(log,"candidate_import_match",candidate.file))){
-      Path restored=dir.resolve("candidate-original.so");
-      try{run(log,"restore_candidate_for_import_check",patcher.getPath(),"restore",candidate.file.toString(),restored.toString());
-       String restoredHash=hash(log,"candidate_restored_original",restored);
-       log.line("IMPORT_COMPARE expected="+importHash+" actual="+restoredHash+" match="+importHash.equals(restoredHash));
-       if(!importHash.equals(restoredHash))return "IMPORT_MISMATCH: 导入文件不是本机此库的原版";
-      }finally{Files.deleteIfExists(restored);}
-     }
      return null;
     }catch(IOException e){return e.getMessage();}
    });
@@ -319,9 +336,9 @@ public final class RootSetup {
    Path patched=dir.resolve(target.payload),original=dir.resolve("backup/original.so"),snapshot=dir.resolve("input.so");
    Files.createDirectories(patched.getParent());Files.createDirectories(original.getParent());
    String visibleBefore=hash(log,"visible_before",Paths.get(target.target));
-   log.line("SNAPSHOT_COPY source="+(input==null?target.file:input)+" destination="+snapshot);
-   Files.copy(input==null?target.file:input,snapshot);String inputHash=hash(log,"input_snapshot",snapshot);
-   boolean snapshotMatches=inputHash.equals(input==null?visibleBefore:importHash);
+   log.line("SNAPSHOT_COPY source="+target.file+" destination="+snapshot);
+   Files.copy(target.file,snapshot);String inputHash=hash(log,"input_snapshot",snapshot);
+   boolean snapshotMatches=inputHash.equals(visibleBefore);
    log.line("SNAPSHOT_VERIFY match="+snapshotMatches);
    if(!snapshotMatches)throw new IOException("LIBRARY_CHANGED: 复制期间输入库发生变化，已取消");
    log.stage("offset");
@@ -350,7 +367,7 @@ public final class RootSetup {
    log.line("LIBRARY_VERIFY visible_unchanged="+stable+" visible_matches_backup_or_patched="+known+" original_sha256="+before+" patched_sha256="+after);
    if(!stable||!known)throw new IOException("LIBRARY_CHANGED: 生成期间系统库发生变化，已取消");
    log.user("一致性校验通过：系统库未变化，原始备份及修补版的 SHA-256 已记录。");
-   Files.delete(snapshot);if(imported!=null)Files.delete(imported);
+   Files.delete(snapshot);
    log.progress(73,"库校验通过，写入回退信息与模块元数据");
    Files.writeString(dir.resolve("original.sha256"),before+"\n");Files.writeString(dir.resolve("patched.sha256"),after+"\n");
    Files.writeString(dir.resolve("patch.txt"),patchLog+"\n"+restoreLog+"\n");
@@ -358,40 +375,83 @@ public final class RootSetup {
    Files.writeString(dir.resolve("generated.txt"),"Generated by MI Screen HDR Enhanced "+VERSION+"\ninput="+target.target+"\npayload="+target.payload+"\nloaded="+target.loaded+"\ninput_sha256="+visible+"\n");
    log.line("METADATA_COMPLETE target="+target.target+" payload="+target.payload+" backup=backup/original.so");
    log.progress(75,"开始打包已修补库和原始备份");
-   Path result=downloads.resolve("MI-Screen-HDR-Enhanced-mount-"+VERSION+".zip"),temp=Files.createTempFile(downloads,".mount-",".zip");
-   try{
-    List<Path> files;
-    try(java.util.stream.Stream<Path> walk=Files.walk(dir)){files=walk.filter(Files::isRegularFile).sorted().collect(java.util.stream.Collectors.toList());}
-    long total=0;for(Path file:files)total+=Files.size(file);log.line("PACKAGE_BEGIN entries="+files.size()+" input_bytes="+total);
-    long written=0;int index=0,lastPercent=75;byte[] block=new byte[65536];
-    try(ZipOutputStream zip=new ZipOutputStream(Files.newOutputStream(temp))){
-     for(Path file:files){String name=dir.relativize(file).toString();long size=Files.size(file),entryBytes=0;
-      log.line("PACKAGE_ENTRY index="+(++index)+" total="+files.size()+" name="+name+" bytes="+size+" status=writing");
-      zip.putNextEntry(new ZipEntry(name));
-      try(InputStream in=Files.newInputStream(file)){int n;while((n=in.read(block))>0){zip.write(block,0,n);written+=n;entryBytes+=n;
-       int progress=75+(int)(9*written/Math.max(1,total));
-       if(progress!=lastPercent){lastPercent=progress;log.progress(progress,"打包写入 "+written+"/"+total+" 字节");}
-      }}
-      zip.closeEntry();log.line("PACKAGE_ENTRY index="+index+" name="+name+" status=complete bytes="+entryBytes+" written_total="+written);
-     }
-    }
-    Files.move(temp,result,StandardCopyOption.REPLACE_EXISTING);result.toFile().setReadable(true,false);
-    log.line("PACKAGE_COMPLETE entries="+files.size()+" input_bytes="+written+" zip_bytes="+Files.size(result));
-   }finally{Files.deleteIfExists(temp);}
-   String zipHash=hash(log,"generated_zip",result);log.line("GENERATED_ZIP="+result);log.line("ZIP_SHA256="+zipHash);
-   log.user("模块 ZIP 已生成："+result);
-   log.progress(85,"模块 ZIP 已生成并计算 SHA-256");return result.toFile();
+   return packageModule(log,dir,downloads.resolve("MI-Screen-HDR-Enhanced-mount-"+VERSION+".zip"),true);
+  }finally{cleanup(dir);log.line("WORK_DIRECTORY_CLEANED="+dir);}
+ }
+ private static File exportImported(Log log,String apkPath,String importedPath)throws Exception{
+  log.stage("prepare");log.progress(5,"准备读取所选运行库");
+  String user=run(log,"current_user","/system/bin/am","get-current-user").trim();
+  if(!user.matches("[0-9]+"))throw new IOException("无法确认下载目录所属用户");
+  Path downloads=Paths.get("/storage/emulated",user,"Download","MI-Screen-HDR-Enhanced");Files.createDirectories(downloads);
+  String stamp=java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"));
+  log.attach(downloads.resolve("export-diagnostics-"+VERSION+"-"+stamp+".txt"));
+  Path source=Paths.get(importedPath);
+  if(!Files.isRegularFile(source)||Files.size(source)<64||Files.size(source)>128L*1024*1024)
+   throw new IOException("IMPORT_INVALID: 原始 SO 文件大小无效");
+  Path dir=Files.createTempDirectory(Paths.get("/data/local/tmp"),"mi-screen-hdr-export-");
+  log.line("WORK_DIRECTORY="+dir);
+  try{
+   unpackTemplate(log,apkPath,dir);
+   File patcher=dir.resolve("bin/hdrpatch").toFile();
+   if(!patcher.setExecutable(true,true))throw new IOException("补丁生成器不可执行");
+   Path snapshot=dir.resolve("input.so"),patched=dir.resolve("offline/patched.so"),original=dir.resolve("backup/original.so");
+   Files.createDirectories(patched.getParent());Files.createDirectories(original.getParent());
+   log.line("IMPORT_BEGIN source="+source+" size="+Files.size(source));
+   String sourceHash=hash(log,"imported_source",source);
+   Files.copy(source,snapshot);String snapshotHash=hash(log,"input_snapshot",snapshot);
+   if(!sourceHash.equals(snapshotHash)||!sourceHash.equals(hash(log,"imported_source_after_copy",source)))
+    throw new IOException("IMPORT_CHANGED: 所选文件在读取期间发生变化，已取消导出");
+   log.stage("discover");log.progress(10,"正在识别所选库的截屏实现");
+   ProbeDetails info=new ProbeDetails();run(log,"probe_import",info::accept,patcher.getPath(),"probe",snapshot.toString());
+   log.stage("library");log.progress(60,"所选库已通过实现校验");
+   log.user("已读取所选库："+Files.size(snapshot)+" 字节。");info.describeLibrary(log);
+   log.stage("offset");
+   if(info.patch==null)throw new IOException("IMPORT_INVALID: 未返回可验证的修补位置，已取消导出");
+   log.line("SELECTED_OFFSET "+info.patch.substring("PATCH_DETAIL ".length()));
+   log.user("修补位置：文件偏移 "+valueOrUnavailable(field(info.patch,"file_offset"))+"；ELF 虚拟地址 "+valueOrUnavailable(field(info.patch,"elf_va"))+"。");
+   log.progress(62,"所选库的修补位置已确认");
+   log.stage("patch");log.progress(65,"正在修补所选库的工作副本");
+   log.user("正在修补所选文件的副本，原文件保持不变。");
+   String patchLog=run(log,"patch_imported",patcher.getPath(),"patch",snapshot.toString(),patched.toString());
+   log.progress(67,"修补完成，正在生成原始库备份");
+   String restoreLog=run(log,"restore_imported",patcher.getPath(),"restore",snapshot.toString(),original.toString());
+   String before=hash(log,"original_backup",original),after=hash(log,"patched_output",patched);
+   if(before.equals(after)||(!snapshotHash.equals(before)&&!snapshotHash.equals(after))||
+      Files.size(snapshot)!=Files.size(original)||Files.size(snapshot)!=Files.size(patched))
+    throw new IOException("EXPORT_VERIFY_FAILED: 修补副本或原始备份校验失败");
+   ProbeDetails patchedInfo=new ProbeDetails(),originalInfo=new ProbeDetails();
+   run(log,"verify_export_patched",patchedInfo::accept,patcher.getPath(),"probe",patched.toString());
+   run(log,"verify_export_original",originalInfo::accept,patcher.getPath(),"probe",original.toString());
+   if(!"patched".equals(field(patchedInfo.match,"state"))||!"original".equals(field(originalInfo.match,"state"))||
+      !Objects.equals(field(info.match,"offset"),field(patchedInfo.match,"offset"))||
+      !Objects.equals(field(info.match,"offset"),field(originalInfo.match,"offset")))
+    throw new IOException("EXPORT_VERIFY_FAILED: 修补位置或还原状态校验失败");
+   log.progress(73,"修补版和原始备份校验通过，写入模块信息");
+   Files.writeString(dir.resolve("original.sha256"),before+"\n");Files.writeString(dir.resolve("patched.sha256"),after+"\n");
+   Files.writeString(dir.resolve("patch.txt"),patchLog+"\n"+restoreLog+"\n");
+   Files.writeString(dir.resolve("offline-export"),"1\n");
+   Files.writeString(dir.resolve("generated.txt"),"Generated by MI Screen HDR Enhanced "+VERSION+"\nmode=offline-export\ninput_sha256="+snapshotHash+"\noriginal_sha256="+before+"\npatched_sha256="+after+"\ntarget=resolve_by_content_at_install\n");
+   Files.delete(snapshot);
+   log.user("修补与备份校验通过；刷入此包时，将在目标设备查找对应运行库。");
+   log.stage("export");log.progress(75,"正在打包修补文件与原始备份");
+   Path output=downloads.resolve("MI-Screen-HDR-Enhanced-mount-"+VERSION+"-export-"+before.substring(0,12)+"-"+stamp+".zip");
+   return packageModule(log,dir,output,false);
   }finally{cleanup(dir);log.line("WORK_DIRECTORY_CLEANED="+dir);}
  }
  public static void main(String[] args){Log log=new Log();int exit=0;try{
   if(android.os.Process.myUid()!=0)throw new IOException("需要 Root 权限");
   if(args.length<1||args.length>3)throw new IOException("安装包参数错误");
   String action=args.length>=2?args[1]:"generate";
-  if(!action.equals("generate")&&!action.equals("install"))throw new IOException("未知操作");
-  File zip=generate(log,args[0],args.length==3?args[2]:null);
-  if(action.equals("generate")){
-   log.line("PASS: 挂载模块已生成，尚未安装。");log.user("挂载模块已生成，尚未安装。");
-   if(log.report!=null)log.user("Root 详细诊断："+log.report);
+  if(!action.equals("generate")&&!action.equals("install")&&!action.equals("export"))throw new IOException("未知操作");
+  boolean export=action.equals("export");log.exportOnly=export;
+  if(export&&args.length!=3)throw new IOException("导出需要选择一个原始 SO 文件");
+  if(!export&&args.length==3)throw new IOException("手动选择的 SO 仅用于导出，请使用导出操作");
+  File zip=export?exportImported(log,args[0],args[2]):generate(log,args[0]);
+  if(!action.equals("install")){
+   log.stage("export_complete");
+   log.line("PASS: 挂载模块已导出，未在本机安装。");log.user("模块已导出："+zip.getPath());
+   if(log.report!=null)log.user("详细诊断："+log.report);
+   log.progress(100,"模块导出完成");
   }
   else {
   RootInstaller.Provider provider=RootInstaller.identify(run(log,"identify_root_provider","/system/bin/sh","-c","su -v"));

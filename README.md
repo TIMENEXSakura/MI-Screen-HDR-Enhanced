@@ -1,10 +1,10 @@
 # 小米截屏HDR增强
 
-**MI Screen HDR Enhanced · 1.5.1**
+**MI Screen HDR Enhanced · 1.5.2**
 
 为小米系统截屏保留 HDR，从截图预览、裁切编辑到带壳保存，让高光与亮度信息随图片一起保留。
 
-[下载 1.5.1 APK](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/releases/download/v1.5.1/MI-Screen-HDR-Enhanced-1.5.1.apk) · [正式版说明](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/releases/tag/v1.5.1) · [反馈问题](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/issues)
+[下载 1.5.2 APK](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/releases/download/v1.5.2/MI-Screen-HDR-Enhanced-1.5.2.apk) · [正式版说明](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/releases/tag/v1.5.2) · [反馈问题](https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced/issues)
 
 ## 主要功能
 
@@ -31,17 +31,17 @@
 
 1. 安装上方 APK，在 LSPosed 中启用模块，作用域选择 **小米截屏（`com.miui.screenshot`）**。
 2. 打开应用，点按**主页「截屏增强」状态卡 → 安装**。
-3. 选择**自动识别并修补**；需要手动提供文件时，选择**本机当前固件的原始 SO 文件**，再点「下一步」。
-4. 授予 Root 权限，等待应用生成并自动刷入挂载模块。完成后**手动重启手机**以加载底层修复。
+3. 选择**自动识别并安装**，点「安装」。需要为其他设备准备模块时，选择**选择 SO 文件并导出**，再点「修补并导出」。
+4. 授予 Root 权限。自动模式会生成并刷入本机模块；选择文件只导出 ZIP，由你在对应设备的 Root 管理器中安装。刷入完成后**手动重启手机**以加载底层修复。
 5. 在「增强设置」调整辉光、HDR 比例等选项，通过「HDR 测试」检查效果。
 
 应用沿用现有的 Magic Mount、OverlayFS、Mountify 或兼容元模块，不替换已有挂载配置。Root 环境须先具备可用的挂载方式；Mountify 手动选择模式需要选中本模块。不同组合的实际支持以安装及启动结果为准，安装成功并不等于已经加载。
 
-挂载模块按本机生成，请勿给其他设备使用。自动刷入失败时，生成的 ZIP 会保留在 `Download/MI-Screen-HDR-Enhanced/`，可查看原因后通过自己的 Root 管理器安装。应用不会自动重启设备。
+选择文件导出的 ZIP 保存在 `Download/MI-Screen-HDR-Enhanced/`，生成时不会安装或更改本机挂载配置。请在该原始库对应的设备及系统版本上安装，安装时会检查是否存在对应库。自动刷入失败时也会保留生成包。应用不会自动重启设备。
 
 ## 日志与反馈
 
-安装成功或失败后，完整日志自动保存到：
+安装或导出完成后，无论成功或失败，完整日志自动保存到：
 
 ```text
 Download/MI-Screen-HDR-Enhanced/logs/
@@ -55,4 +55,4 @@ Download/MI-Screen-HDR-Enhanced/logs/
 
 本项目独立维护，与小米、Google、SukiSU 或 LSPosed 无官方隶属关系。
 
-[开发文档与兼容性细节](DEVELOPMENT.md) · [1.5.1 更新说明](RELEASE_NOTES-1.5.1.txt) · [图标 SVG](artwork/mi-screen-hdr-enhanced.svg)
+[开发文档与兼容性细节](DEVELOPMENT.md) · [1.5.2 更新说明](RELEASE_NOTES-1.5.2.txt) · [图标 SVG](artwork/mi-screen-hdr-enhanced.svg)

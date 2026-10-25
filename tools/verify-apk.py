@@ -43,5 +43,5 @@ with ZipFile(apk) as archive:
     with ZipFile(io.BytesIO(archive.read('assets/mount-template.zip'))) as template:
         assert 'bin/hdrpatch' in template.namelist()
         assert not any(name.endswith('.so') for name in template.namelist())
-        assert 'version=1.5.1' in template.read('module.prop').decode()
+        assert 'version=1.5.2' in template.read('module.prop').decode()
     print('PASS generated-module template; no vendor system libraries bundled')

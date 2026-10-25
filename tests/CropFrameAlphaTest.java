@@ -17,10 +17,9 @@ public final class CropFrameAlphaTest {
   return drawable;
  }
  private static void render(Drawable drawable,String label){
-  // NinePatchDrawable starts with a null Paint. Its first non-255 alpha creates
-  // Paint with default filtering, even after alpha is restored. Compare all
-  // fractions with the same initialized sampling state, not null-vs-new Paint.
-  try(CropFrameAlpha ignored=CropFrameAlpha.begin(drawable,0)){}
+  // Include the first alpha change: lazy Paint creation must preserve native
+  // sampling, so the untouched crop frame remains the strict pixel baseline.
+  boolean nativeFilter=drawable.isFilterBitmap();
   Bitmap mask=bitmap();drawable.draw(new Canvas(mask));
   Bitmap base=bitmap();base.eraseColor(0xff344b63);
   Paint background=new Paint();background.setColor(0xff101820);new Canvas(base).drawRect(0,0,192,16,background);
@@ -34,7 +33,7 @@ public final class CropFrameAlphaTest {
    // may drop its gainmap. Do not mistake that unrelated operation for a UI fade.
    Bitmap result=bitmap();Canvas canvas=new Canvas(result);canvas.drawBitmap(base,0,0,null);
    try(CropFrameAlpha state=CropFrameAlpha.begin(drawable,fraction)){drawable.draw(canvas);}
-   check(drawable.getAlpha()==255,label+" restores native alpha at "+fraction);
+   check(drawable.getAlpha()==255&&drawable.isFilterBitmap()==nativeFilter,label+" restores native alpha and sampling at "+fraction);
    boolean unchanged=true;long difference=0;int borderPixels=0;
    for(int y=0;y<256;y++)for(int x=0;x<192;x++){
     int a=base.getPixel(x,y),b=result.getPixel(x,y);

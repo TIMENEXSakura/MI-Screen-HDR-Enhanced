@@ -113,7 +113,9 @@ public final class RootSetup {
   Process p=new ProcessBuilder(args).redirectErrorStream(true).start();StringBuilder output=new StringBuilder();
   try(BufferedReader reader=new BufferedReader(new InputStreamReader(p.getInputStream(),StandardCharsets.UTF_8))){
    String line;while((line=reader.readLine())!=null){
-    log.line(line);output.append(line).append('\n');
+    // Manager output is visible, but must not be mistaken for our progress protocol.
+    if(label.equals("root_install"))log.installer(line);else log.line(line);
+    output.append(line).append('\n');
     // The full stream is already on disk; only retain a bounded command result in memory.
     if(output.length()>512*1024)output.delete(0,output.length()-512*1024);
     if(observer!=null)observer.accept(line);
@@ -396,7 +398,7 @@ public final class RootSetup {
   String installer=executable(log,provider);log.line("ROOT_INSTALLER="+provider+" "+installer);
   log.user("已选用 "+provider+" 安装器："+installer);
   log.stage("install");log.progress(85,"Root 安装器处理中，等待返回结果");
-  try{run(log,"root_install",log::installer,RootInstaller.command(provider,installer,zip.getPath()));log.line("INSTALL_RESULT=success exit=0");}
+  try{run(log,"root_install",RootInstaller.command(provider,installer,zip.getPath()));log.line("INSTALL_RESULT=success exit=0");}
   catch(IOException e){log.line("INSTALL_RESULT=failed reason="+e.getMessage());throw new IOException("ROOT_INSTALL_FAILED ("+provider+"): "+e.getMessage()+"\nZIP 已保留："+zip,e);}
   log.progress(98,"Root 安装成功，完成当前启动配置");
   try{run(log,"current_boot_properties","/system/bin/sh","-c","PATH=/system/bin:/system/xbin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk; resetprop -n debug.sf.local_tonemap_screenshots true && resetprop -n debug.sf.true_hdr_screenshots true");}

@@ -17,10 +17,11 @@ public final class MiuiHook {
    protected void before(Call param){if(PreviewHdr.directDraw((android.view.View)param.thisObject))param.args[0]=android.view.View.LAYER_TYPE_NONE;}
   });}catch(Throwable t){log("HDR preview direct drawing hook unavailable: "+t);}
   try{HookRuntime.add(Class.forName("android.view.WindowManagerImpl").getDeclaredMethod("updateViewLayout",android.view.View.class,android.view.ViewGroup.LayoutParams.class),new Callback(){
-   protected void before(Call param){param.args[1]=PreviewHdr.keepHdr((android.view.View)param.args[0],(android.view.ViewGroup.LayoutParams)param.args[1]);}
+   protected void before(Call param){param.args[1]=EditorTransition.keepAlpha((android.view.View)param.args[0],PreviewHdr.keepHdr((android.view.View)param.args[0],(android.view.ViewGroup.LayoutParams)param.args[1]));}
   });}catch(Throwable t){log("HDR preview window update hook unavailable: "+t);}
   try{EditorTransition.install(cl);}catch(Throwable t){log("Editor fade hook unavailable: "+t);}
   try{EditorPreviewHdr.install(cl);}catch(Throwable t){log("Editor HDR preview hook unavailable: "+t);}
+  CropHooks.install(cl);
   try{CaptureRatioHooks.install();}catch(Throwable t){log("Capture ratio unavailable: "+t);}
   try{PrecisionHooks.install();}catch(Throwable t){log("Pixel HDR encoder hook unavailable: "+t);}
   try{NativeProbeEntry.install();}catch(Throwable t){log("Root probe unavailable: "+t);}

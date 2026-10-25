@@ -332,7 +332,7 @@ internal fun ManagerAbout(onBack: () -> Unit) {
             Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Credit("Google / AndroidX", "界面框架与设计规范：Jetpack Compose Material 3 Expressive（Apache 2.0）。")
                 Credit("SukiSU-Ultra", "主页、安装流程、日志页、关于页及主题和导航代码的改编来源（GPL-3.0）。本项目独立维护。")
-                Credit("libxposed", "现代 Xposed API 102（Apache 2.0）。")
+                Credit("LSPosed", "模块注入接口：API 102。接口依赖及许可见开源项目。")
                 Credit("MaterialKolor · libjpeg-turbo", "动态主题配色与高质量 JPEG 编码；许可详见开源项目。")
                 Credit("HDR 测试照片", "Mishaal Rahman · Ultra HDR Samples（CC BY 4.0）。")
             }

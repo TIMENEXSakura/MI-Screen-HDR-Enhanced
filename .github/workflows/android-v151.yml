@@ -50,7 +50,9 @@ jobs:
           bash build.sh 2>&1 | tee dist/build.log
       - name: Run library, recovery and API 102 checks
         shell: bash
-        run: bash tests/run-host-tests.sh 2>&1 | tee dist/checks.log
+        run: |
+          bash tests/run-host-tests.sh 2>&1 | tee dist/checks.log
+          bash tests/build-device-tests.sh 2>&1 | tee dist/device-tests-build.log
       - name: Verify packaging and record provenance
         shell: bash
         run: |

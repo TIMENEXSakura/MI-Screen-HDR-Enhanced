@@ -17,6 +17,10 @@ public final class CropFrameAlphaTest {
   return drawable;
  }
  private static void render(Drawable drawable,String label){
+  // NinePatchDrawable starts with a null Paint. Its first non-255 alpha creates
+  // Paint with default filtering, even after alpha is restored. Compare all
+  // fractions with the same initialized sampling state, not null-vs-new Paint.
+  try(CropFrameAlpha ignored=CropFrameAlpha.begin(drawable,0)){}
   Bitmap mask=bitmap();drawable.draw(new Canvas(mask));
   Bitmap base=bitmap();base.eraseColor(0xff344b63);
   Paint background=new Paint();background.setColor(0xff101820);new Canvas(base).drawRect(0,0,192,16,background);

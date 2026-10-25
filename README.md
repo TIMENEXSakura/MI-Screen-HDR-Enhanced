@@ -114,12 +114,20 @@ java -cp build/installer-tests dev.local.miuihdr.RootInstallerTest
 
 停用应用 Hook：在 LSPosed 中关闭模块并重启小米截屏进程。停用底层覆盖：在 Root 管理器中禁用 `xiaomi17u_hdr_clamp_test` 并重启设备。卸载 APK 不会卸载已安装的挂载模块。
 
+## 验证
+
+模块本体和挂载模块已在Xiaomi 17 Ultra上验证通过，可以正常截取HDR内容。
+
+## 问题
+
+在播放一些特定流媒体平台的杜比视界媒体时，有时会出现获取不到增益图或者增益图弱或异常的情况，该问题在Youtube上游的原视频中没有复现，怀疑是国内流媒体平台对于HDR内容边界处理的异常导致，不过仍会在以后尝试修复。
+
 ## 许可证与来源
 
 项目源码按 [GNU GPL v3](LICENSE) 发布。第三方代码与素材保留各自许可证：
 
 - UI 框架为 **Google / AndroidX Jetpack Compose Material 3**，设计规范为 **Material 3 Expressive**。
-- 部分主题及浮动导航代码改编自 **SukiSU-Ultra**（GPL-3.0）。SukiSU 是这些代码片段的来源，并非 UI 框架的名称；具体版本与路径见 [UI-SOURCE.txt](assets/UI-SOURCE.txt)。
+- 部分主题及浮动导航代码改编自 **SukiSU**（GPL-3.0）。SukiSU 是这些代码片段的来源，并非 UI 框架的名称；具体版本与路径见 [UI-SOURCE.txt](assets/UI-SOURCE.txt)。
 - MaterialKolor：MIT。
 - HDR 照片：Mishaal Rahman，CC BY 4.0，见 [素材说明](assets/HDR-PHOTO-CREDIT.txt)。
 - Xposed API：Apache-2.0，见 [第三方说明](NOTICE.txt)。

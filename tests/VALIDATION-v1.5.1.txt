@@ -1,20 +1,23 @@
-MI Screen HDR Enhanced 1.5.1 test build
+MI Screen HDR Enhanced 1.5.1 release validation record
 Baseline: official v1.4.5 / 2e31b93d40db188da23b8b045021c0b8c5926524
 1.4.6 CI changes were not used.
 
 Host checks:
-- LibraryLocatorTest: 33, including renamed loaded SO and alternate Finger candidates.
+- LibraryLocatorTest: 48, including renamed loaded SO and alternate Finger candidates.
 - RootInstallerTest: 16, Magisk / KernelSU / APatch selection and argument preservation.
 - test_mount_recovery.py: 41, backend checks, partition relocation and guarded rollback.
-- test_patch_probe.py: 9, strict legacy fingerprint, ambiguity and malformed input.
-- test_semantic_patch.py: 10, changed function/file addresses, register allocation,
+- test_patch_probe.py: 16, strict legacy fingerprint, ambiguity and malformed input.
+- test_semantic_patch.py: 11, changed function/file addresses, register allocation,
   field/vtable offsets, NOP/branch distances, invalid dataflow and duplicate functions.
   Every successful synthetic patch restores byte-for-byte; inputs stay unchanged.
 - HookRuntimeTest: 8, API 102 interception, argument/result handling, original
   exceptions, cleanup and no retry after a partial JPEG write.
+- InstallProgressTest: 20, monotonic progress, completion after actual process exit,
+  concise scan output and original manager output without extra labels.
+- Total latest host checks: 160; cloud build, API 102 and native packaging passed.
 
 Android runtime checks (Xiaomi 17 Ultra, OS4.0.4.0.XPACNXM, API 37):
-- EditorGainmapTest: 17. Full and cropped preview, exact single-pixel alignment,
+- EditorGainmapTest: 49. Full and cropped preview, exact single-pixel alignment,
   invalid geometry, SDR transition, ratio selection and unchanged gainmap pixels.
 - PreviewHdrTest: 22. Recording WindowManager; no real window is created.
   Editor HDR persists across transient screenshot cleanup; original state restored.
@@ -50,7 +53,7 @@ Crop-frame transition correction:
   for the bloom fade; it cannot cover the crop frame during its appearance.
 - CropFrameAlphaTest renders both actual Xiaomi crop-frame resources at five
   fractions and checks their footprint, gain metadata and exception cleanup.
-  This test is cloud-compiled; device execution is recorded separately.
+  All 45 checks passed on-device using the cloud-compiled test on commit 87366d4.
 
 No device reboot, SurfaceFlinger restart, system screenshot APK replacement,
 or mount-provider configuration modification was performed.
@@ -62,3 +65,21 @@ on a real display, Dolby Vision sources returning empty/missing gainmaps,
 and actual cold-boot recovery across all Root/mount combinations.
 The fake WindowManager test may print a display-event initialization warning
 in app_process. The real SurfaceFlinger process remains alive and unchanged.
+
+Latest installer and display validation (2026-10-25):
+- 844a96e: EditorGainmapTest 49 checks passed on the phone. Reload confirmation,
+  cancel and Back behavior were verified; ratio dialog opened with both modes.
+  Further ratio-menu tap automation stopped on a foreground change.
+- 6fc1a34: actual SukiSU/KernelSU + Mountify installation completed successfully,
+  all seven stages reached 100%, and all 54 manager output lines were retained.
+  Per-file scanning stayed out of the visible log. The automatically exported
+  full log matched the internal file byte-for-byte.
+- 6b6c857: the installed cloud-built APK displayed the existing installation log
+  without added timestamps or manager labels; manager brand/result text and
+  all seven stages remained visible. Old log display migration was verified.
+  The underlying installation evidence is inherited from 6fc1a34, not a claim
+  that this cosmetic update reran every device check.
+- The formal release preparation changes documentation and CI branch coverage;
+  application code remains the tested 6b6c857 revision. Its fresh cloud build
+  and verification are linked by build-info.json and signing-info.json.
+- No cross-device or cold-boot recovery claim is added by formal publication.

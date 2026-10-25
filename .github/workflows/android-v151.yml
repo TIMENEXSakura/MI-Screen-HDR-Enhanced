@@ -2,7 +2,7 @@ name: Android 1.5.1 · build and checks
 
 on:
   push:
-    branches: ["release/1.5.1"]
+    branches: ["main", "release/1.5.1"]
   pull_request:
   workflow_dispatch:
 

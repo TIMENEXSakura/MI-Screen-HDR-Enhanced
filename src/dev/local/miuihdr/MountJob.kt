@@ -37,6 +37,8 @@ internal object MountJob {
         val controls = mutableListOf<String>()
         var lastUiFlush = 0L
         var warned = false
+        var rootStarted = false
+        var failureExplained = false
         var failure: String? = null; private set
         fun append(value: String) {
             if (failure != null) return
@@ -94,6 +96,8 @@ internal object MountJob {
         val stamp = timestamp(started)
         val body = event?.let { "[${it.percent}%] ${it.phase}" } ?: stageName(value)?.let { "阶段：$it" } ?: value
         writer.append(stamp + body)
+        if (value == "STAGE=prepare") writer.rootStarted = true
+        if (value.startsWith("USER_LOG=未完成：")) writer.failureExplained = true
         if (event != null || stageName(value) != null) writer.controls.add(value)
         // Only product-facing stage summaries and the selected library reach Compose.
         InstallProgress.userLine(value)?.let { writer.visible.append(stamp).append(it).append('\n') }
@@ -182,7 +186,13 @@ internal object MountJob {
                         process.inputStream.bufferedReader().use { reader ->
                             while (true) { val next = reader.readLine() ?: break; emit(writer, prefs, started, next) }
                         }
-                        process.waitFor().also { emit(writer, prefs, started, "安装进程退出码：$it（0 表示成功）。") }
+                        process.waitFor().also {
+                            emit(writer, prefs, started, "安装进程退出码：$it（0 表示成功）。")
+                            if (it != 0 && !writer.failureExplained) {
+                                val reason = if (writer.rootStarted) "安装进程提前结束" else "Root 安装进程未能启动，请检查 Root 授权"
+                                emit(writer, prefs, started, "USER_LOG=未完成：$reason（退出码 $it）；具体错误请查看完整日志。")
+                            }
+                        }
                         } finally { flushUi(writer, prefs, true) }
                     }
                 }

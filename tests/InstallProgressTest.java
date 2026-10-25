@@ -22,7 +22,7 @@ public final class InstallProgressTest {
         check(InstallProgress.userLine("USER_LOG=找到目标库：/system/lib64/libsurfaceflinger.so").equals("找到目标库：/system/lib64/libsurfaceflinger.so"),"selected library summary is visible without protocol prefix");
         check(InstallProgress.userLine("[阶段 2/7 · 扫描阶段] 正在查找").contains("正在查找"),"Chinese stage explanation remains visible");
         check(InstallProgress.userLine("USER_LOG=安装未完成：没有识别到支持的运行库。").contains("安装未完成"),"concise failure explanation remains visible");
-        check(InstallProgress.userLine("INSTALLER_LOG=- Installing with SukiSU / KernelSU").equals("[管理器] - Installing with SukiSU / KernelSU"),"root manager installation output remains visible");
+        check(InstallProgress.userLine("INSTALLER_LOG=- Installing with SukiSU / KernelSU").equals("- Installing with SukiSU / KernelSU"),"root manager installation output is displayed unchanged without an added label");
         check(InstallProgress.parse("INSTALLER_LOG=PROGRESS=100|刷入完成")==null
             &&InstallProgress.userLine("INSTALLER_LOG=! Install failed").contains("! Install failed"),"root manager errors remain visible without controlling progress");
         System.out.println("INSTALL_PROGRESS_CHECKS="+passed);

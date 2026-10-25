@@ -86,7 +86,7 @@ internal object MountJob {
             if (writer.failure != null) incompleteLog = true
             if (progress != previous || phase != previousPhase) prefs.edit()
                 .putInt("last_install_progress", progress).putString("last_install_phase", phase)
-                .putString("detail", text).putInt("install_log_ui_version", 2)
+                .putString("detail", text).putInt("install_log_ui_version", 3)
                 .putBoolean("last_install_log_incomplete", incompleteLog).apply()
         }
         writer.lastUiFlush = SystemClock.elapsedRealtime()
@@ -100,10 +100,10 @@ internal object MountJob {
         if (value.startsWith("USER_LOG=未完成：")) writer.failureExplained = true
         if (event != null || stageName(value) != null) writer.controls.add(value)
         // Keep stage summaries, selected library details and the root manager's install output.
-        InstallProgress.userLine(value)?.let { writer.visible.append(stamp).append(it).append('\n') }
+        InstallProgress.userLine(value)?.let { writer.visible.append(it).append('\n') }
         if (!writer.warned && writer.failure != null) {
             writer.warned = true
-            writer.visible.append(stamp).append("详细日志写入失败，正在等待实际安装结果。\n")
+            writer.visible.append("详细日志写入失败，正在等待实际安装结果。\n")
         }
         flushUi(writer, prefs, value.startsWith("[阶段 "))
     }
@@ -145,7 +145,7 @@ internal object MountJob {
         prefs.edit().putBoolean("install_in_progress", true).putBoolean("last_install_success", false)
             .putInt("last_install_progress", 0).putString("last_install_phase", phase).putString("detail", "")
             .putBoolean("last_install_log_incomplete", false).putString("last_install_log_location", null)
-            .putInt("install_log_ui_version", 2).putString("result", "安装尚未完成").apply()
+            .putInt("install_log_ui_version", 3).putString("result", "安装尚未完成").apply()
         scope.launch {
             var imported: File? = null
             var installLog: InstallLog? = null
@@ -211,7 +211,7 @@ internal object MountJob {
                     try { log.appendText(summary + "\n") } catch (_: Exception) { }
                     imported?.delete()
                 }
-                appendUi(summary + "\n")
+                appendUi((status ?: "安装结果未确认") + "\n")
                 try {
                     logLocation = withContext(Dispatchers.IO) { publishLog(app) }
                     appendUi(if (incompleteLog) "日志已保存（记录不完整）：$logLocation\n" else "完整日志已保存：$logLocation\n")
@@ -220,7 +220,7 @@ internal object MountJob {
                 }
                 busy = false
                 prefs.edit().putString("result", status).putString("detail", text)
-                    .putString("last_install_log_location", logLocation).putInt("install_log_ui_version", 2)
+                    .putString("last_install_log_location", logLocation).putInt("install_log_ui_version", 3)
                     .putBoolean("last_install_success", success).putBoolean("install_in_progress", false)
                     .putBoolean("last_install_log_incomplete", incompleteLog)
                     .putInt("last_install_progress", progress).putString("last_install_phase", phase)
@@ -234,7 +234,7 @@ internal object MountJob {
         text = p.getString("detail", "") ?: ""; status = p.getString("result", null)
         incompleteLog = p.getBoolean("last_install_log_incomplete", false)
         logLocation = p.getString("last_install_log_location", null)
-        if (p.getInt("install_log_ui_version", 0) < 2 || p.getBoolean("install_in_progress", false)) {
+        if (p.getInt("install_log_ui_version", 0) < 3 || p.getBoolean("install_in_progress", false)) {
             val log = File(context.filesDir, LOG_FILE)
             if (log.isFile) try {
                 val selected = StringBuilder()

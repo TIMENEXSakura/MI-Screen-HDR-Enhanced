@@ -1,0 +1,38 @@
+MI Screen HDR Enhanced 1.5.6 / versionCode 156 — RGB CI test
+
+APP-generated patch:
+The APK embeds a native patch generator, never a vendor system library. On the
+audited nezha SurfaceFlinger build, it replaces the scalar luminance gain shader
+with same-frame linear RGB gains, opaque alpha and a zero-headroom guard. The
+complete library SHA-256 is checked after normalizing only the validated clamp
+instruction and exact original/new shader spans. Native metadata, gain interval
+[1, headroom], gamma and epsilon remain unchanged. Unknown builds report RGB
+unsupported and retain the existing validated clamp behavior.
+
+Upgrade/rollback:
+The APP supports stock, old clamp-only and combined patch inputs. It verifies
+patch/restore round trips against the same original backup. Root installation
+and offline export resolve older compatible inputs by restoring a temporary
+copy and matching the complete stock SHA-256. Boot validation and rollback retain
+their existing strict checks. Installation does not restart SurfaceFlinger;
+reboot is required to load the new shader.
+
+Screenshot handling:
+RGB retention defaults on, preserves existing gain channels, bypasses pixel
+rebasing and uses JPEG quality 100 with 4:4:4. It does not request FP16 capture.
+Experimental display-color/compatibility capture stays an independent opt-in.
+Diagnostics distinguish single-channel, identical RGB and distinct RGB maps.
+Neutral standard gainmap metadata does not rule out proprietary display HDR.
+
+Validation:
+CI runs synthetic ELF, SHA-256, migration, recovery and hook tests, builds device
+image tests, verifies APK/native alignment and exports exact source provenance.
+On-device GPU fixtures exercise the embedded shader, framework gainmap wrapping,
+crop and JPEG round trips. Real system-library patch/restore validation is local;
+proprietary libraries and user photos are never included in CI or the APK.
+
+Limits:
+This fixes loss caused by scalar gain generation on the audited build. It does
+not recover RGB from an already flattened image or guarantee capture of Dolby,
+Leica or panel effects absent from the system HDR input. Saturation beyond the
+existing native gain interval remains bounded by the system metadata.

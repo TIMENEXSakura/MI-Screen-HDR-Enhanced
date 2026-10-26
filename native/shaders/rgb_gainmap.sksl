@@ -1,0 +1,12 @@
+uniform shader sdr;
+uniform shader hdr;
+uniform float mapMaxLog2;
+
+vec4 main(vec2 xy) {
+    if (!(mapMaxLog2 > 0.0)) return vec4(0.0, 0.0, 0.0, 1.0);
+    vec3 base = max(sdr.eval(xy).rgb, vec3(0.0));
+    vec3 full = max(hdr.eval(xy).rgb, vec3(0.0));
+    vec3 gain = (full + vec3(0.015625)) / (base + vec3(0.015625));
+    vec3 encoded = clamp(log2(gain) / mapMaxLog2, 0.0, 1.0);
+    return vec4(encoded, 1.0);
+}

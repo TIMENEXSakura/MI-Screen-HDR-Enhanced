@@ -1,0 +1,82 @@
+RGB gainmap retention candidate — 2026-10-26
+
+Historical prototype record, before APP integration. For the 1.5.6 APP patcher,
+CI packaging and installation behavior, see RGB-TEST-1.5.6.txt in the repo root.
+
+Scope
+This candidate targets RGB information collapsed during screenshot gainmap
+generation. It does not implement the pending Xiaomi/Dolby private HDR inventory.
+The current system library is unchanged; this is not a flashable module.
+
+Observed loss
+The audited libsurfaceflinger.so shader reduces linear SDR/HDR RGB to luminance
+(0.2126 R + 0.7152 G + 0.0722 B), then emits the same gain in all channels.
+The GPU regression reproduces this with independently varied RGB inputs.
+An RGB bitmap/JPEG container alone does not prove distinct channel data.
+
+Candidate
+native/shaders/rgb_gainmap.sksl computes each channel's logarithmic gain from the
+same SDR/HDR input pair. Existing offset 1/64, gamma 1, minimum gain 1, maximum
+gain/headroom uniform, dimensions and shader uniform names are retained.
+Alpha is opaque. Zero/invalid nonpositive headroom emits zero gain.
+
+patch_shader.py only accepts the two audited library SHA-256 fingerprints.
+It replaces a 711-byte read-only shader slot at ELF/file address 0x164682 with
+411 bytes of shader and space padding. The NUL, library length, executable
+instructions and existing brightness-clamp patch are preserved. The shader
+reference is at ELF VA 0x6efda0. Output goes to a new file; nothing is installed.
+Restore is verified byte-for-byte against the input library.
+
+Screenshot application
+When RGB retention and pixel rebasing are both enabled, RGB retention wins.
+Rebasing may move color into the SDR base and make the gainmap nearly scalar;
+that is not by itself lost HDR radiance, but it does not preserve the original
+RGB map. JPEG 4:4:4 encoding remains enabled with RGB retention.
+Capture diagnostics now distinguish single-channel storage, identical RGB
+values, and actual per-pixel channel differences. Neutral standard metadata
+is not promoted to HDR from display headroom or a manual ratio.
+
+Validation on the device
+39 RGB pipeline checks passed:
+  - Original shader reproduces equal RGB gain values.
+  - Candidate runs on the device GPU with independent channel gains.
+  - Real ScreenCaptureInternal.ScreenshotHardwareBuffer.createFromNative and
+    asBitmap preserve the generated RGB map and its reconstruction parameters.
+  - Editor crop and quality-100 JPEG encode/decode preserve channel differences.
+  - RGB retention bypasses optional pixel rebasing.
+  - Identical SDR/HDR inputs and zero headroom do not manufacture gain.
+  - Native channel diagnostics distinguish RGB data from RGB storage.
+Worst absolute linear-RGB error in the synthetic test:
+  GPU / framework / crop: 0.001126386 (SDR white = 1).
+  RGB JPEG roundtrip:      0.010863584.
+57 FP16/neutral-metadata checks and 49 editor/ratio checks also passed.
+7 patcher tests passed, including unknown-library rejection, unchanged bytes
+outside the slot, idempotence, and exact restore.
+Native library, test DEX and modified Java capture hooks compile successfully.
+No complete APK build, installation, real screenshot, or release is claimed.
+
+Test harness
+GPU tests use synthetic buffers in an isolated app_process, no UI or screen
+capture. Explicit VM exit avoids the native RenderThread destructor race seen
+in the first harness run. Other app_process tests can emit display-receiver
+shutdown warnings; post-test SurfaceFlinger PID remains 5010 and its library
+hash remains 1d268533b1c5f0268f36c57d967d044525b01aef802b47fece637c0e35e701d0.
+The supplied photo hash also remains unchanged.
+
+Limits and next validation
+Actual patched SurfaceFlinger execution on Dolby/Leica content is still pending.
+The existing [1, headroom] gain interval cannot represent channel attenuation
+below 1 or gains above that interval. The candidate cannot recover private
+effects that never entered the HDR input buffer, or reconstruct RGB gains from
+an already collapsed grayscale map. It must not be presented as all-OEM HDR
+support or a verified fix for the supplied Leica photo.
+
+Offline use (repository root)
+python3 experiments/hdr-rgb/patch_shader.py probe /path/to/audited/libsurfaceflinger.so
+python3 experiments/hdr-rgb/patch_shader.py patch /path/to/audited/libsurfaceflinger.so --out /new/path/rgb.so
+python3 experiments/hdr-rgb/patch_shader.py restore /new/path/rgb.so --out /new/path/restored.so
+HDR_SF_LIBRARY=/path/to/audited/libsurfaceflinger.so python3 -m unittest discover -s experiments/hdr-rgb -v
+
+Device tests are built by tests/build-image-tests.sh. Invoke
+dev.local.miuihdr.RgbGainmapPipelineTest with libmiuihdr.so, the original shader,
+and native/shaders/rgb_gainmap.sksl, in that order.

@@ -136,6 +136,8 @@ class SettingsActivity : ComponentActivity() {
             }
             Text("下次截图生效。SDR 观感会变化，保存耗时和 JPG 体积可能增加。JPG 仍有压缩误差；不支持的输入自动沿用原流程。", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
+            SectionTitle("HDR 兼容测试")
+            HdrCaptureSettingsCard()
             SectionTitle("录屏")
             Card(onClick = { page = 6 }, shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {

@@ -1,4 +1,4 @@
-# No device/model/Android/firmware allowlist.
+# Generic clamp matching; private RGB support is fingerprint-locked in hdrpatch.
 [ "$BOOTMODE" = true ] || abort "Install from the running Android system."
 [ "${KSU_LATE_LOAD:-0}" != 1 ] || abort "Boot-time mounting unavailable in late-load mode."
 [ "${APATCH_LATE_LOAD:-0}" != 1 ] || abort "Boot-time mounting unavailable in late-load mode."
@@ -17,9 +17,7 @@ hdr_backend_report > "$MODPATH/mount-backend.txt"
 [ -f "$HDR_TARGET" ] || abort "SurfaceFlinger library unavailable; existing setup retained."
 hdr_files_ok || abort "Generated module is incomplete or damaged; regenerate in the Xposed APK."
 HDR_VISIBLE=$(hdr_sha "$HDR_TARGET")
-case "$HDR_VISIBLE" in "$HDR_ORIGINAL"|"$HDR_PATCHED") ;;
- *) abort "System library changed after generation; regenerate in the Xposed APK.";;
-esac
+hdr_install_matches "$HDR_TARGET" "$HDR_VISIBLE" "$HDR_ORIGINAL" "$HDR_PATCHED" || abort "System library changed after generation; regenerate in the Xposed APK."
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 for script in post-fs-data.sh service.sh boot-completed.sh action.sh control.sh; do set_perm "$MODPATH/$script" 0 0 0755; done
 set_perm "$MODPATH/bin/hdrpatch" 0 0 0755

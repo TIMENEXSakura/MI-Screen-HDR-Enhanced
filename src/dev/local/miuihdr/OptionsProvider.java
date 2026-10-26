@@ -9,6 +9,13 @@ public final class OptionsProvider extends ContentProvider {
   int uid=Binder.getCallingUid();boolean own=uid==android.os.Process.myUid()||uid==0||uid==1000;
   boolean screenshot=false,recorder=false;String[] packages=getContext().getPackageManager().getPackagesForUid(uid);
   if(packages!=null)for(String name:packages){if("com.miui.screenshot".equals(name))screenshot=true;if("com.miui.screenrecorder".equals(name))recorder=true;}
+  if(method.startsWith("hdr_capture_")){
+   if("hdr_capture_report".equals(method)){if(!screenshot)throw new SecurityException("Caller is not the screenshot app");return HdrCaptureSettings.report(getContext(),extras);}
+   if(!own)throw new SecurityException("Caller is not the manager");
+   if("hdr_capture_settings".equals(method))return HdrCaptureSettings.read(getContext());
+   if("hdr_capture_configure".equals(method))return HdrCaptureSettings.save(getContext(),extras);
+   throw new IllegalArgumentException("Unknown HDR capture method");
+  }
   if(method.startsWith("recorder_")){
    if(!own&&!recorder)throw new SecurityException("Caller is not the recorder app");
    if("recorder_settings".equals(method)){
@@ -25,6 +32,6 @@ public final class OptionsProvider extends ContentProvider {
   }
   if(!own&&!screenshot)throw new SecurityException("Caller is not the screenshot app");
   if(!"options".equals(method))throw new IllegalArgumentException("Unknown method");
-  SharedPreferences p=getContext().getSharedPreferences("ui_options",Context.MODE_PRIVATE);Bundle b=new Bundle();b.putBoolean("glow",p.getBoolean("glow",true));b.putBoolean("hdr_glow",p.getBoolean("hdr_glow",true));b.putBoolean("badge",p.getBoolean("badge",true));b.putBoolean("pixel_precision",p.getBoolean("pixel_precision",false));b.putBoolean("capture_ratio_auto",p.getBoolean("capture_ratio_auto",true));b.putString("capture_ratio_mode",p.getString("capture_ratio_mode",CaptureRatio.FORCE));b.putFloat("capture_ratio_offset",p.getFloat("capture_ratio_offset",0));b.putFloat("capture_ratio",p.getFloat("capture_ratio",4));return b;}
+  SharedPreferences p=getContext().getSharedPreferences("ui_options",Context.MODE_PRIVATE);Bundle b=new Bundle();b.putString("hdr_capture_mode",HdrCaptureSettings.mode(p.getString("hdr_capture_mode","native")));b.putBoolean("hdr_capture_rgb",p.getBoolean("hdr_capture_rgb",true));b.putBoolean("glow",p.getBoolean("glow",true));b.putBoolean("hdr_glow",p.getBoolean("hdr_glow",true));b.putBoolean("badge",p.getBoolean("badge",true));b.putBoolean("pixel_precision",p.getBoolean("pixel_precision",false));b.putBoolean("capture_ratio_auto",p.getBoolean("capture_ratio_auto",true));b.putString("capture_ratio_mode",p.getString("capture_ratio_mode",CaptureRatio.FORCE));b.putFloat("capture_ratio_offset",p.getFloat("capture_ratio_offset",0));b.putFloat("capture_ratio",p.getFloat("capture_ratio",4));return b;}
  public String getType(Uri u){return null;}public Cursor query(Uri u,String[] p,String s,String[] a,String o){throw new UnsupportedOperationException();}public Uri insert(Uri u,ContentValues v){throw new UnsupportedOperationException();}public int delete(Uri u,String s,String[] a){throw new UnsupportedOperationException();}public int update(Uri u,ContentValues v,String s,String[] a){throw new UnsupportedOperationException();}
 }

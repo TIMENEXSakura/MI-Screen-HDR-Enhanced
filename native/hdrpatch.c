@@ -1,6 +1,6 @@
-/* Reproduce the supplied module's clamp patch in the device's own ELF.
- * No device/model/ROM allowlist. A missing/ambiguous instruction sequence is
- * an error, and no output is committed in that case. */
+/* Generic validated clamp patch plus fingerprint-locked RGB gainmap repair.
+ * Missing/ambiguous clamp sequences never produce output. Private RGB shader
+ * replacement is restricted to the complete audited library fingerprint. */
 #include <elf.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include "elf_match.h"
+#include "rgb_patch.h"
 
 static const unsigned char prefix[]={0x08,0x00,0x40,0xf9,0x08,0x39,0x42,0xf9,0x00,0x01,0x3f,0xd6};
 static const unsigned char suffix[]={0x01,0x10,0x2e,0x1e,0xa0,0x46,0x41,0xbd,0x00,0x20,0x21,0x1e,0x2d,0x01,0x00,0x54,0xa8,0xe2,0x45,0x39,0xe8,0x00,0x00,0x37,0xa1,0x42,0x41,0xbd,0x20,0x20,0x20,0x1e,0x20,0x4c,0x20,0x1e,0x02,0x00,0x00,0x14,0xa0,0x46,0x41,0xbd,0xa0,0x42,0x01,0xbd};
@@ -162,11 +163,24 @@ int main(int argc,char **argv){
  printf(" current_word=0x%08" PRIx32 " original_word=0x%08" PRIx32 " patched_word=0x%08" PRIx32 " branch_target_file_offset=0x%zx",insn(data+match),restore_word,patch_word,target);
  log_address(data,size,&eh,target,"branch_target_elf_va");
  puts(" original_instruction=TBZ_W0_bit0 patched_instruction=B effect=skip_capture_brightness_clamp runtime_address=not_resolved");
+ int rgb=hdr_rgb_inspect(data,size,&eh,&hdr_rgb_profile,match,restore_word,patch_word);
+ if(rgb){
+  printf("RGB_PATCH_DETAIL supported=true algorithm=linear_rgb_v1 state=%s file_offset=0x%zx bytes=%zu channels=3 alpha=opaque fingerprint=normalized_sha256\n",rgb==2?"patched":"original",hdr_rgb_profile.offset,hdr_rgb_profile.length);
+  puts("RGB 增益图：完整库指纹已验证，使用同帧线性 SDR/HDR 逐通道计算；沿用系统增益范围与元数据。");
+ }else{
+  puts("RGB_PATCH_DETAIL supported=false reason=unreviewed_library_or_shader algorithm=none");
+  puts("RGB 增益图：此库未通过已验证算法的完整指纹检查，本次仅处理亮度钳位，不修改增益图算法。");
+ }
  if(probe){printf("PATCH_MATCH offset=0x%zx architecture=ELF64_AARCH64 method=%s state=%s\n",match,method,insn(data+match)==patch_word?"patched":"original");free(data);return 0;}
  int wasPatched=insn(data+match)==patch_word;uint32_t output_word=!strcmp(argv[1],"patch")?patch_word:restore_word;
- printf("准备%s：目标机器码为 0x%08" PRIx32 "，只在输出副本中替换已校验位置的 4 字节。\n",!strcmp(argv[1],"patch")?"修补":"还原",output_word);
+ printf("准备%s：目标机器码为 0x%08" PRIx32 "，在输出副本中替换已校验的指令及受支持的 RGB 算法。\n",!strcmp(argv[1],"patch")?"修补":"还原",output_word);
  printf("PATCH_STAGE operation=%s phase=prepare status=started target_word=0x%08" PRIx32 " effect=%s\n",argv[1],output_word,!strcmp(argv[1],"patch")?"skip_capture_brightness_clamp":"restore_capture_brightness_clamp");
  memcpy(data+match,&output_word,4);
+ if(rgb){
+  if(!strcmp(argv[1],"patch"))hdr_rgb_bytes(data+hdr_rgb_profile.offset,hdr_rgb_profile.length);
+  else memcpy(data+hdr_rgb_profile.offset,hdr_rgb_original,hdr_rgb_profile.length);
+  printf("RGB_PATCH_RESULT operation=%s state=%s algorithm=linear_rgb_v1\n",argv[1],!strcmp(argv[1],"patch")?"patched":"original");
+ }
  printf("PATCH_STAGE operation=%s phase=prepare status=complete\n",argv[1]);
  char temp[4096];if(snprintf(temp,sizeof(temp),"%s.tmp.%ld",argv[3],(long)getpid())>=(int)sizeof(temp)){free(data);return fail("output path too long");}
  int fd=open(temp,O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0600);if(fd<0){free(data);return fail("cannot create output");}

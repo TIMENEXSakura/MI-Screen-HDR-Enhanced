@@ -119,7 +119,7 @@ final class RecorderModuleBridge {
         try {
             if(!process.waitFor(15,TimeUnit.SECONDS))throw new IOException("底层读取超时，请检查 HDR 增强的 Root 授权");
             String response=output.get(2,TimeUnit.SECONDS);
-            if(process.exitValue()==11)throw new IOException("请从 HDR 增强主页安装或更新 1.5.5 底层模块");
+            if(process.exitValue()==11)throw new IOException("请从 HDR 增强主页安装或更新 1.5.6 底层模块");
             if(process.exitValue()!=0)throw new IOException(response.contains("error=unsupported")?"未检测到所需系统后端":response.contains("error=conflict")?"其他模块正在设置系统后端":response.contains("error=boot_busy")?"启动校验尚未完成":response.contains("error=disabled")?"底层模块已停用":"操作未完成，请检查 Root 授权与模块状态");
             Map<String,String> values=new HashMap<>();
             for(String line:response.split("\n")){if(line.isEmpty())continue;int at=line.indexOf('=');if(at<1||values.put(line.substring(0,at),line.substring(at+1))!=null)throw new IOException("通讯格式异常");}

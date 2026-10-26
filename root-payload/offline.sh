@@ -50,7 +50,7 @@ hdr_offline_prepare() {
     size=$(stat -L -c '%s' "$candidate" 2>/dev/null) || { hdr_offline_fail 'OFFLINE_SCAN_FAILED: 无法读取候选库大小。'; return 1; }
     [ "$size" = "$original_size" ] || continue
     digest=$(hdr_sha "$candidate") || { hdr_offline_fail 'OFFLINE_SCAN_FAILED: 无法完整读取候选库。'; return 1; }
-    case "$digest" in "$original"|"$patched") ;; *) continue;; esac
+    hdr_install_matches "$candidate" "$digest" "$original" "$patched" || continue
     target=${candidate#"$root"}
     canonical=$(readlink -f "$candidate") || { hdr_offline_fail 'OFFLINE_SCAN_FAILED: 无法确认匹配库的真实路径。'; return 1; }
     case "$canonical" in "$root"/*) canonical=${canonical#"$root"};; *) hdr_offline_fail 'OFFLINE_TARGET_UNSUPPORTED: 匹配库指向扫描根目录之外。'; return 1;; esac
@@ -86,7 +86,7 @@ hdr_offline_prepare() {
  [ "$count" = 1 ] || { hdr_offline_fail 'OFFLINE_LIBRARY_AMBIGUOUS: 多个独立系统库与所选 SO 匹配，无法唯一确定挂载位置，已停止安装。'; return 1; }
  payload=$(hdr_payload_for "$found") || { hdr_offline_fail 'OFFLINE_TARGET_UNSUPPORTED: 无法确定标准挂载路径。'; return 1; }
  digest=$(hdr_sha "$root$found") || { hdr_offline_fail 'OFFLINE_LIBRARY_CHANGED: 安装定位后无法读取目标库。'; return 1; }
- case "$digest" in "$original"|"$patched") ;; *) hdr_offline_fail 'OFFLINE_LIBRARY_CHANGED: 定位期间系统库已变化，已停止安装。'; return 1;; esac
+ hdr_install_matches "$root$found" "$digest" "$original" "$patched" || { hdr_offline_fail 'OFFLINE_LIBRARY_CHANGED: 定位期间系统库已变化，已停止安装。'; return 1; }
  [ ! -e "$MODDIR/$payload" ] || { hdr_offline_fail 'OFFLINE_INVALID: 挂载目录中存在多余库文件，请重新导出。'; return 1; }
  mkdir -p "$MODDIR/${payload%/*}" && mv "$MODDIR/offline/patched.so" "$MODDIR/$payload" || { hdr_offline_fail 'OFFLINE_WRITE_FAILED: 无法准备挂载库文件。'; return 1; }
  printf '%s\n' "$found" > "$MODDIR/target.path" && printf '%s\n' "$payload" > "$MODDIR/payload.path" || { hdr_offline_fail 'OFFLINE_WRITE_FAILED: 无法保存目标设备的挂载位置。'; return 1; }

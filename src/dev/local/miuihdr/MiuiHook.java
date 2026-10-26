@@ -56,9 +56,10 @@ public final class MiuiHook {
    try{capture=cl.loadClass("com.miui.screenshot.core.util.DisplayCapture").getDeclaredMethod("captureDisplay",android.content.Context.class,int.class,android.graphics.Rect.class,String[].class);}
    catch(ReflectiveOperationException absent){capture=cl.loadClass("e1.d").getDeclaredMethod("a",android.content.Context.class,int.class,android.graphics.Rect.class,String[].class);}
    HookRuntime.add(capture,new Callback(){protected void before(Call param){
+    HdrCaptureHooks.begin((android.content.Context)param.args[0],(Integer)param.args[1]);
     CaptureRatioHooks.begin((android.content.Context)param.args[0],(Integer)param.args[1]);
     HdrFrame.beforeCapture();java.util.LinkedHashSet<String> names=new java.util.LinkedHashSet<String>();if(param.args[3]!=null)java.util.Collections.addAll(names,(String[])param.args[3]);names.add("ScreenshotAnimation");names.add("RearScreenshotWindow");param.args[3]=names.toArray(new String[0]);log("Capture excludes preview layers; count="+names.size());
-   }protected void after(Call param){CaptureRatioHooks.end();}});
+   }protected void after(Call param){try{HdrCaptureHooks.finish();}finally{CaptureRatioHooks.end();}}});
   }catch(Throwable t){log("Capture isolation unavailable: "+t);}
   try{
    Class<?> worker=cl.loadClass("com.miui.screenshot.hyper.TakeScreenshotExecutorImpl$processImageCapture$bitmap$1");

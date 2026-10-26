@@ -10,12 +10,19 @@ import android.os.Build;
  * a per-pixel chromaticity-preserving clamp, so their SDR appearance changes.
  */
 public final class GainmapPrecision {
+    static Bitmap tryApply(Bitmap source,boolean preserveRgbMap) {
+        // Rebase moves chromatic information into the SDR base and can leave a
+        // near-scalar map that JPEG quantizes to gray. RGB retention takes
+        // priority when both optional modes are enabled.
+        return preserveRgbMap ? source : tryApply(source);
+    }
     static Bitmap tryApply(Bitmap source) {
         try { return apply(source); }
         catch (Throwable t) { android.util.Log.w("MiuiHdrHook", "Pixel precision skipped; original retained", t); return source; }
     }
     public static Bitmap apply(Bitmap source) {
         if (source == null || !source.hasGainmap()) return source;
+        if (HdrSignal.neutralStandardMetadata(source.getGainmap())) return source;
         if (!NativeBridge.loaded) throw new IllegalStateException("Native precision compositor unavailable");
         Gainmap gm=source.getGainmap(); ColorSpace space=source.getColorSpace();
         if (!(space instanceof ColorSpace.Rgb) ||

@@ -19,7 +19,7 @@ HDR_PASSWORD_FILE=${HDR_PASSWORD_FILE:-$HDR_BASE/module/signing-password.txt}
 if [[ -f "$HDR_KEYSTORE" && -f "$HDR_PASSWORD_FILE" ]]; then
  HDR_APKSIG=$(find "${GRADLE_USER_HOME:-$HOME/.gradle}/caches/modules-2/files-2.1/com.android.tools.build/apksig/9.4.0" -name '*.jar' -print -quit)
  "${JAVA_HOME:+$JAVA_HOME/bin/}javac" -cp "$HDR_APKSIG" -d build/signing tools/SignApk.java
- "${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp "build/signing:$HDR_APKSIG" SignApk "$HDR_KEYSTORE" "$HDR_PASSWORD_FILE" dist/unsigned.apk dist/MI-Screen-HDR-Enhanced-1.5.5.apk
+ "${JAVA_HOME:+$JAVA_HOME/bin/}java" -cp "build/signing:$HDR_APKSIG" SignApk "$HDR_KEYSTORE" "$HDR_PASSWORD_FILE" dist/unsigned.apk dist/MI-Screen-HDR-Enhanced-1.5.6.apk
 else
  echo 'Unsigned APK: dist/unsigned.apk. Sign with your own Android signing key.'
 fi

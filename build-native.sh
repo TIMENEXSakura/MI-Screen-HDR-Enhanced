@@ -3,6 +3,7 @@ set -euo pipefail
 HDR_MOD=$(cd "$(dirname "$0")" && pwd)
 mkdir -p "$HDR_MOD/lib/arm64-v8a"
 mkdir -p "$HDR_MOD/root-payload/bin"
+python3 "$HDR_MOD/tools/generate-rgb-shader.py" --check
 bash "$HDR_MOD/tools/build-jpeg.sh"
 HDR_JPEG_FLAGS=(-I"$HDR_MOD/build/jpeg-source/libjpeg-turbo-3.1.2/src" -I"$HDR_MOD/build/jpeg-static" "$HDR_MOD/build/jpeg-static/libjpeg.a" -Wl,--exclude-libs,ALL)
 if [[ -n "${ANDROID_NDK_HOME:-}" ]]; then

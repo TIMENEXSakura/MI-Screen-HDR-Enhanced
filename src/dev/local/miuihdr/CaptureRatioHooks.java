@@ -30,13 +30,18 @@ final class CaptureRatioHooks {
    HookRuntime.add(type.getDeclaredMethod("asBitmap"),new Callback(){protected void after(Call p){
     Sample sample=ACTIVE.get();if(sample==null||p.hasThrowable()||!(p.getResult() instanceof Bitmap))return;
     try{
-     if(Boolean.TRUE.equals(secure.invoke(p.thisObject))||!Boolean.TRUE.equals(hasHdr.invoke(p.thisObject)))return;
-     Bitmap bitmap=(Bitmap)p.getResult();float original=nativeRatio.getFloat(p.thisObject);
+     if(Boolean.TRUE.equals(secure.invoke(p.thisObject)))return;
+     Bitmap bitmap=HdrCaptureHooks.process(p.thisObject,(Bitmap)p.getResult());
+     if(bitmap!=p.getResult())p.setResult(bitmap);
+     if(bitmap==null||(!Boolean.TRUE.equals(hasHdr.invoke(p.thisObject))&&!bitmap.hasGainmap()))return;
+     float original=HdrCaptureImage.created(bitmap)&&bitmap.hasGainmap()?bitmap.getGainmap().getDisplayRatioForFullHdr():nativeRatio.getFloat(p.thisObject);
      if(CaptureRatio.apply(bitmap,original,sample.display,sample.mode,sample.offset,sample.forced))MiuiHook.log("Capture gainmap ratio corrected "+original+" -> "+bitmap.getGainmap().getDisplayRatioForFullHdr()+" mode="+sample.mode);
      if(!bitmap.hasGainmap())MiuiHook.log("HDR capture has no gainmap buffer; ratio alone cannot recover highlights");
     }catch(Throwable t){MiuiHook.log("Capture ratio unchanged: "+t);}
    }});
    MiuiHook.log("Capture ratio hook ready: "+name);
+   try{HdrCaptureHooks.installAdapter(type);MiuiHook.log("High-precision HDR adapter ready: "+name);}
+   catch(Throwable unavailable){MiuiHook.log("High-precision HDR adapter unavailable; native capture retained: "+unavailable);}
   }catch(ClassNotFoundException|NoSuchFieldException|NoSuchMethodException unavailable){MiuiHook.log("Capture ratio API absent: "+name);}
  }
 }

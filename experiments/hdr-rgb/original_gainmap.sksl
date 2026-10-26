@@ -1,0 +1,21 @@
+
+    uniform shader sdr;
+    uniform shader hdr;
+    uniform float mapMaxLog2;
+
+    const float mapMinLog2 = 0.0;
+    const float mapGamma = 1.0;
+    const float offsetSdr = 0.015625;
+    const float offsetHdr = 0.015625;
+
+    float luminance(vec3 linearColor) {
+        return 0.2126 * linearColor.r + 0.7152 * linearColor.g + 0.0722 * linearColor.b;
+    }
+
+    vec4 main(vec2 xy) {
+        float sdrY = luminance(sdr.eval(xy).rgb);
+        float hdrY = luminance(hdr.eval(xy).rgb);
+        float pixelGain = (hdrY + offsetHdr) / (sdrY + offsetSdr);
+        float logRecovery = (log2(pixelGain) - mapMinLog2) / (mapMaxLog2 - mapMinLog2);
+        return vec4(pow(clamp(logRecovery, 0.0, 1.0), mapGamma));
+    }

@@ -3,10 +3,18 @@ import android.graphics.Bitmap;
 import android.graphics.Gainmap;
 import java.util.WeakHashMap;
 final class HdrSignal {
+ // Describes only Android's standard gainmap. Xiaomi window/renderer HDR
+ // can be active independently; identity metadata is not a whole-image verdict.
+ static boolean neutralStandardMetadata(Gainmap gm){
+  float[] min=gm.getRatioMin(),max=gm.getRatioMax(),sdr=gm.getEpsilonSdr(),hdr=gm.getEpsilonHdr();
+  for(int c=0;c<3;c++)if(min[c]!=1||max[c]!=1||sdr[c]!=hdr[c])return false;
+  return true;
+ }
  static final class Info {
-  final boolean hdr;final float ratio;final int peak;
-  Info(boolean h,float r,int p){hdr=h;ratio=r;peak=p;}
-  public String toString(){return "valid="+hdr+" ratio="+ratio+" signal="+peak;}
+  final boolean hdr;final float ratio;final int peak;final String state;
+  Info(boolean h,float r,int p){this(h,r,p,h?"active":"absent");}
+  Info(boolean h,float r,int p,String s){hdr=h;ratio=r;peak=p;state=s;}
+  public String toString(){return "valid="+hdr+" ratio="+ratio+" signal="+peak+" state="+state;}
  }
  private static final WeakHashMap<Bitmap,Info> CACHE=new WeakHashMap<Bitmap,Info>();
  static void invalidate(Bitmap b){synchronized(CACHE){CACHE.remove(b);}}
@@ -17,6 +25,17 @@ final class HdrSignal {
   try{
    if(b.hasGainmap()){
     Gainmap gm=b.getGainmap();float ratio=gm.getDisplayRatioForFullHdr();
+    float[] minimum=gm.getRatioMin(),maximum=gm.getRatioMax(),sdr=gm.getEpsilonSdr(),hdr=gm.getEpsilonHdr();
+    boolean identity=neutralStandardMetadata(gm),constantBoost=true;
+    for(int c=0;c<3;c++){
+     constantBoost&=minimum[c]>1.01f&&maximum[c]>=minimum[c]&&sdr[c]>=hdr[c];
+    }
+    // A real second JPEG can have neutral XMP/ISO metadata (e.g. Leica M9).
+    // Its nonzero pixels must not be promoted to HDR by inventing a ratio.
+    if(identity){result=new Info(false,ratio,0,"neutral_metadata");}
+    else if(!Float.isFinite(ratio)||ratio<=1.01f){result=new Info(false,ratio,0,"no_hdr_headroom");}
+    else if(constantBoost){result=new Info(true,ratio,0,"constant_gain");}
+    else {
     if(Float.isFinite(ratio)&&ratio>1.01f){
      Bitmap map=gm.getGainmapContents();boolean alphaOnly=map.getConfig()==Bitmap.Config.ALPHA_8;
      if(map.getConfig()==Bitmap.Config.HARDWARE){own=map.copy(Bitmap.Config.ARGB_8888,false);map=own;}
@@ -31,8 +50,9 @@ final class HdrSignal {
        }
       }
       }
-      result=new Info(peak>1,ratio,peak);
+      result=new Info(peak>1,ratio,peak,peak>1?"active":"empty_signal");
      }
+    }
     }
    }
   }catch(Throwable t){MiuiHook.log("HDR inspection failed: "+t);}

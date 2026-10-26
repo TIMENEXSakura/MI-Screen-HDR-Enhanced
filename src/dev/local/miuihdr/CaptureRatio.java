@@ -48,6 +48,10 @@ final class CaptureRatio {
    boolean preserveNative=valid(baseline)&&(AUTO.equals(mode)||(OFFSET.equals(mode)&&offset==0));
    if(preserveNative&&saved==null)return false;
    Gainmap original=saved==null?current:saved.metadata;
+   // A Xiaomi private render path may coexist with neutral standard metadata.
+   // Display headroom (including a user-selected ratio) does not describe its
+   // spatial gain. Keep that map intact instead of inventing standard HDR.
+   if(HdrSignal.neutralStandardMetadata(original))return false;
    // Screenshot gainmaps use an SDR base. Reinterpreting an HDR base would reverse the math.
    if(Build.VERSION.SDK_INT>=36&&original.getGainmapDirection()!=Gainmap.GAINMAP_DIRECTION_SDR_TO_HDR)return false;
    if(!validMetadata(original))return false;

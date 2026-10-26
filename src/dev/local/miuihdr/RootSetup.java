@@ -9,7 +9,7 @@ import java.util.zip.*;
 
 /** Generate a local install or an offline export; the APK never ships a system SO. */
 public final class RootSetup {
- private static final String VERSION="1.5.5";
+ private static final String VERSION="1.5.6";
  private static final Pattern PATCH_OFFSET=Pattern.compile("(?:^| )file_offset=(0x[0-9a-fA-F]+)(?: |$)");
  private static final class Log implements AutoCloseable {
   private final List<String> pending=new ArrayList<>();
@@ -92,9 +92,9 @@ public final class RootSetup {
   if(line.startsWith("SNAPSHOT_COPY "))return "复制输入库到工作副本。";
   if(line.startsWith("SNAPSHOT_VERIFY "))return "核对输入快照哈希，确保复制期间原文件未发生变化。";
   if(line.startsWith("SELECTED_OFFSET "))return "所选实现的修补位置如下；地址来自此库的定位结果。";
-  if(line.startsWith("PATCH_OPERATION "))return "正在修改截图亮度钳位分支，所有写入仅作用于工作目录中的副本。";
-  if(line.startsWith("BACKUP_OPERATION "))return "恢复原始指令并保存原库备份，供安装回退使用。";
-  if(line.startsWith("LIBRARY_VERIFY "))return "一致性检查：系统库应保持不变，且其哈希应等于原始备份或对应的修补版。";
+  if(line.startsWith("PATCH_OPERATION "))return "正在修补截图亮度钳位和受支持的 RGB 增益算法，所有写入仅作用于工作副本。";
+  if(line.startsWith("BACKUP_OPERATION "))return "恢复原始指令与受支持的原始增益算法，保存完整原库供回退使用。";
+  if(line.startsWith("LIBRARY_VERIFY "))return "一致性检查：系统库应保持不变，输入及修补版均须能完整还原到同一原始备份。";
   if(line.startsWith("METADATA_COMPLETE "))return "挂载目标、模块路径、原始备份和回退校验值已写入。";
   if(line.startsWith("PACKAGE_BEGIN "))return "开始压缩模块，按条目及实际写入字节推进进度。";
   if(line.startsWith("PACKAGE_ENTRY "))return "压缩条目状态：writing 正在写入，complete 已完成；字节数如下。";
@@ -160,12 +160,13 @@ public final class RootSetup {
  }
  private static String valueOrUnavailable(String value){return value==null||value.equals("unavailable")?"不可用":value;}
  private static final class ProbeDetails {
-  String elf,build,match,patch;
+  String elf,build,match,patch,rgb;
   void accept(String line){
    if(line.startsWith("ELF_INFO "))elf=line;
    else if(line.startsWith("ELF_BUILD_ID "))build=line;
    else if(line.startsWith("PATCH_MATCH "))match=line;
    else if(line.startsWith("PATCH_DETAIL "))patch=line;
+   else if(line.startsWith("RGB_PATCH_DETAIL "))rgb=line;
   }
   void describeLibrary(Log log){
    String bits=field(elf,"class");
@@ -175,7 +176,24 @@ public final class RootSetup {
    String method=field(match,"method");
    String description="symbol-dataflow".equals(method)?"函数符号与指令数据流":"legacy-exact".equals(method)?"精确特征码":valueOrUnavailable(method);
    log.user("匹配方式："+description+(method==null?"":"（"+method+"）")+"。");
+   log.user("true".equals(field(rgb,"supported"))?"RGB 算法：库指纹已验证，将启用同帧红、绿、蓝独立增益，并备份原始算法。":"RGB 算法：此库尚不支持安全修补；仅处理已识别的亮度钳位。");
   }
+ }
+ private static void verifyRoundTrip(Log log,File patcher,Path snapshot,Path original,Path patched,String before,String after)throws Exception{
+  if(before.equals(after)||Files.size(snapshot)!=Files.size(original)||Files.size(snapshot)!=Files.size(patched))
+   throw new IOException("PATCH_VERIFY_FAILED: 修补版、备份长度或校验值异常");
+  Path check=Files.createTempFile(snapshot.getParent(),"roundtrip-",".so");
+  try{
+   run(log,"verify_repatch",patcher.getPath(),"patch",original.toString(),check.toString());
+   if(!after.equals(hash(log,"repatched_backup",check)))throw new IOException("PATCH_VERIFY_FAILED: 备份不能重建同一修补版");
+   run(log,"verify_restore",patcher.getPath(),"restore",patched.toString(),check.toString());
+   if(!before.equals(hash(log,"restored_patch",check)))throw new IOException("PATCH_VERIFY_FAILED: 修补版不能完整还原");
+   // The input may be a valid older clamp-only patch. It must normalize to
+   // exactly the same backup, rather than being accepted as an arbitrary hash.
+   run(log,"verify_input",patcher.getPath(),"restore",snapshot.toString(),check.toString());
+   if(!before.equals(hash(log,"restored_input",check)))throw new IOException("PATCH_VERIFY_FAILED: 输入库不能还原到已验证备份");
+   log.line("PATCH_ROUNDTRIP verified=true input_normalizes_to_backup=true");
+  }finally{Files.deleteIfExists(check);}
  }
  private static String briefFailure(String message){
   String first=message.split("\\R",2)[0];
@@ -353,8 +371,8 @@ public final class RootSetup {
     log.user("修补地址详情：不可用，定位器未返回完整地址；完整匹配结果已保留。");
    }
    log.progress(62,"所选库的实现定位结果已读取");
-   log.stage("patch");log.progress(65,"输入快照校验通过，生成 HDR 钳位修补");
-   log.user("正在修补截图亮度钳位分支，仅修改临时副本。");
+   log.stage("patch");log.progress(65,"输入快照校验通过，生成 HDR 和受支持的 RGB 修补");
+   log.user("正在修补截图亮度钳位和受支持的 RGB 算法，仅修改临时副本。");
    log.line("PATCH_OPERATION action=skip_capture_brightness_clamp source="+snapshot+" output="+patched);
    String patchLog=run(log,"patch_selected",runtimeDetails(log,mappings,target),patcher.getPath(),"patch",snapshot.toString(),patched.toString());
    log.progress(67,"HDR 修补文件已生成，恢复原始库用于备份");
@@ -363,9 +381,10 @@ public final class RootSetup {
    log.user("原始库备份已完成，正在核对修补结果与系统库的一致性。");
    log.progress(70,"原始库已备份，校验修补结果和系统库一致性");
    String before=hash(log,"original_backup",original),after=hash(log,"patched_output",patched),visible=hash(log,"visible_after",Paths.get(target.target));
-   boolean stable=visible.equals(visibleBefore),known=visible.equals(before)||visible.equals(after);
-   log.line("LIBRARY_VERIFY visible_unchanged="+stable+" visible_matches_backup_or_patched="+known+" original_sha256="+before+" patched_sha256="+after);
-   if(!stable||!known)throw new IOException("LIBRARY_CHANGED: 生成期间系统库发生变化，已取消");
+   verifyRoundTrip(log,patcher,snapshot,original,patched,before,after);
+   boolean stable=visible.equals(visibleBefore)&&visibleBefore.equals(hash(log,"visible_final",Paths.get(target.target)));
+   log.line("LIBRARY_VERIFY visible_unchanged="+stable+" input_normalized_and_roundtrip_verified=true original_sha256="+before+" patched_sha256="+after);
+   if(!stable)throw new IOException("LIBRARY_CHANGED: 生成期间系统库发生变化，已取消");
    log.user("一致性校验通过：系统库未变化，原始备份及修补版的 SHA-256 已记录。");
    Files.delete(snapshot);
    log.progress(73,"库校验通过，写入回退信息与模块元数据");
@@ -416,9 +435,7 @@ public final class RootSetup {
    log.progress(67,"修补完成，正在生成原始库备份");
    String restoreLog=run(log,"restore_imported",patcher.getPath(),"restore",snapshot.toString(),original.toString());
    String before=hash(log,"original_backup",original),after=hash(log,"patched_output",patched);
-   if(before.equals(after)||(!snapshotHash.equals(before)&&!snapshotHash.equals(after))||
-      Files.size(snapshot)!=Files.size(original)||Files.size(snapshot)!=Files.size(patched))
-    throw new IOException("EXPORT_VERIFY_FAILED: 修补副本或原始备份校验失败");
+   verifyRoundTrip(log,patcher,snapshot,original,patched,before,after);
    ProbeDetails patchedInfo=new ProbeDetails(),originalInfo=new ProbeDetails();
    run(log,"verify_export_patched",patchedInfo::accept,patcher.getPath(),"probe",patched.toString());
    run(log,"verify_export_original",originalInfo::accept,patcher.getPath(),"probe",original.toString());

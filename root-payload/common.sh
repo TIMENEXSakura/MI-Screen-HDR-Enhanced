@@ -26,6 +26,22 @@ hdr_load_target() {
 HDR_CONFIG_OK=0
 if hdr_load_target; then HDR_CONFIG_OK=1; fi
 hdr_sha() { local value; value=$(sha256sum "$1" 2>/dev/null) || return 1; printf '%s\n' "${value%% *}"; }
+# Installation-only migration from an older compatible patch. Restore a copy,
+# then require byte-exact stock SHA-256; no live write or hash-only exemption.
+hdr_install_matches() {
+ local file="$1" digest="$2" original="$3" patched="$4" work normalized after
+ case "$digest" in "$original"|"$patched") return 0;; esac
+ [ -f "$MODDIR/bin/hdrpatch" ] && [ ! -L "$MODDIR/bin/hdrpatch" ] || return 1
+ chmod 0755 "$MODDIR/bin/hdrpatch" || return 1
+ work=$(mktemp -d "$MODDIR/.verify.XXXXXX") || return 1
+ normalized=
+ if "$MODDIR/bin/hdrpatch" restore "$file" "$work/original.so" > "$work/probe.txt" 2>&1; then
+  normalized=$(hdr_sha "$work/original.so")
+ fi
+ after=$(hdr_sha "$file")
+ rm -f "$work/original.so" "$work/probe.txt"; rmdir "$work"
+ [ "$after" = "$digest" ] && [ "$normalized" = "$original" ]
+}
 hdr_error() {
  render_restore failed
  printf 'ERROR: %s\n' "$1" >> "$MODDIR/rollback.txt"

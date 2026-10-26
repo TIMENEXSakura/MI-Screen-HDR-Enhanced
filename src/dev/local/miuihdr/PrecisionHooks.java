@@ -8,8 +8,13 @@ import java.io.OutputStream;
 /** Installed only inside Xiaomi's screenshot process. */
 final class PrecisionHooks {
  private static final ThreadLocal<Boolean> ENCODING=new ThreadLocal<>();
- static boolean enabled(){Context context=HookObjects.currentApplication();return context!=null&&HookConfig.read(context).precision;}
- static Bitmap capture(Bitmap input){return input!=null&&input.hasGainmap()&&enabled()?GainmapPrecision.tryApply(input):input;}
+ static boolean enabled(){Context context=HookObjects.currentApplication();if(context==null)return false;HookConfig config=HookConfig.read(context);return config.precision||config.captureRgb;}
+ static Bitmap capture(Bitmap input){
+  if(input==null||!input.hasGainmap()||HdrCaptureImage.created(input))return input;
+  Context context=HookObjects.currentApplication();if(context==null)return input;
+  HookConfig config=HookConfig.read(context);
+  return config.precision?GainmapPrecision.tryApply(input,config.captureRgb):input;
+ }
  static void install()throws Exception{
   HookRuntime.add(Bitmap.class.getDeclaredMethod("compress",Bitmap.CompressFormat.class,int.class,OutputStream.class),new Callback(){
    protected void before(Call param){

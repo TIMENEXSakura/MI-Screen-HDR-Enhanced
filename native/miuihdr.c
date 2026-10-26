@@ -76,6 +76,30 @@ JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_firstSignal(JNIEnv *e
  AndroidBitmap_unlockPixels(env,bitmap);return peak;
 }
 
+/* Inspect stored gain values, not color-managed getPixel() output. A three-
+ * component bitmap can still contain identical R/G/B at every pixel. */
+JNIEXPORT jboolean JNICALL Java_dev_local_miuihdr_NativeBridge_gainmapChannels(JNIEnv *env,jclass clazz,jobject bitmap,jintArray report){
+ AndroidBitmapInfo info;void *pixels=NULL;jint values[3]={0,0,0};
+ if(!bitmap||!report||(*env)->GetArrayLength(env,report)!=3||AndroidBitmap_getInfo(env,bitmap,&info)!=0)return JNI_FALSE;
+ if(info.flags&ANDROID_BITMAP_FLAGS_IS_HARDWARE)return JNI_FALSE;
+ if(!info.width||!info.height||(uint64_t)info.width*info.height>16000000)return JNI_FALSE;
+ if(info.format!=ANDROID_BITMAP_FORMAT_A_8&&info.format!=ANDROID_BITMAP_FORMAT_RGBA_8888)return JNI_FALSE;
+ values[0]=info.format==ANDROID_BITMAP_FORMAT_A_8?1:3;
+ values[1]=(jint)(info.width*info.height);
+ if(values[0]==3){
+  if(AndroidBitmap_lockPixels(env,bitmap,&pixels)!=0||!pixels)return JNI_FALSE;
+  for(uint32_t y=0;y<info.height;y++){
+   const unsigned char *row=(const unsigned char *)pixels+(size_t)y*info.stride;
+   for(uint32_t x=0;x<info.width;x++){
+    const unsigned char *p=row+4*x;
+    if(p[0]!=p[1]||p[1]!=p[2])values[2]++;
+   }
+  }
+  AndroidBitmap_unlockPixels(env,bitmap);
+ }
+ (*env)->SetIntArrayRegion(env,report,0,3,values);return JNI_TRUE;
+}
+
 #include <stdlib.h>
 #include <math.h>
 /* All images have exactly the same shell geometry. Raw bytes avoid getPixels'
@@ -125,3 +149,5 @@ JNIEXPORT jboolean JNICALL Java_dev_local_miuihdr_NativeBridge_composeShellGainm
 
 #include "gainmap_precision.c"
 #include "jpeg444.c"
+
+#include "hdr_capture.c"

@@ -4,6 +4,7 @@ import android.net.Uri;
 import android.os.Bundle;
 final class HookConfig {
  final boolean glow,hdrGlow,badge,precision;
+ boolean captureRgb;String hdrCaptureMode="native";
  final float captureRatio,captureRatioOffset;
  final String captureRatioMode;
  HookConfig(boolean g,boolean h,boolean b,boolean p){this(g,h,b,p,CaptureRatio.AUTO,0,4);}
@@ -17,6 +18,7 @@ final class HookConfig {
   Bundle p=context.getContentResolver().call(Uri.parse("content://dev.local.miuihdr.options"),"options",null,null);
   if(p==null)throw new IllegalStateException("No options response");
   String mode=p.getBoolean("capture_ratio_auto",true)?CaptureRatio.AUTO:p.getString("capture_ratio_mode",CaptureRatio.FORCE);
-  return new HookConfig(p.getBoolean("glow",true),p.getBoolean("hdr_glow",true),p.getBoolean("badge",true),p.getBoolean("pixel_precision",false),mode,p.getFloat("capture_ratio_offset",0),p.getFloat("capture_ratio",4));
+  HookConfig result=new HookConfig(p.getBoolean("glow",true),p.getBoolean("hdr_glow",true),p.getBoolean("badge",true),p.getBoolean("pixel_precision",false),mode,p.getFloat("capture_ratio_offset",0),p.getFloat("capture_ratio",4));
+  result.captureRgb=p.getBoolean("hdr_capture_rgb",true);result.hdrCaptureMode=HdrCaptureSettings.mode(p.getString("hdr_capture_mode","native"));return result;
  }catch(Throwable t){MiuiHook.log("Preferences unavailable; effects skipped: "+t);return new HookConfig(false,false,false,false);}}
 }

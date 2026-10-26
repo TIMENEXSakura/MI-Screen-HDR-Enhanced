@@ -146,12 +146,7 @@ internal fun ManagerHome(onInstall: () -> Unit, onTest: () -> Unit, onSettings: 
                 InfoRow("系统截屏", screenshotVersion, last = true)
             }
         }
-        Surface(onClick = { try {
-                context.startActivity(Intent().setClassName("com.miui.screenrecorder", "com.miui.screenrecorder.activity.ScreenRecorderSettingActivity"))
-            } catch (_: Exception) {
-                val launch = context.packageManager.getLaunchIntentForPackage("com.miui.screenrecorder")
-                if (launch != null) context.startActivity(launch) else Toast.makeText(context, "请打开小米录屏的设置页", Toast.LENGTH_LONG).show()
-            } },
+        Surface(onClick = { RecorderControl.open(context) }, enabled = !RecorderControl.busy,
             shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceBright) {
             Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Videocam, null, tint = MaterialTheme.colorScheme.primary)

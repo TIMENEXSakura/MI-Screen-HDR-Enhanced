@@ -181,6 +181,7 @@ public final class RecordingService extends Service {
             long elapsed = Math.max(1, SystemClock.elapsedRealtime() - begin);
             String report = "录屏后端对照测试 0.1\n所选后端：" + backend + "\n设备：" + Build.MANUFACTURER + " " + Build.MODEL +
                 "\n系统：" + Build.VERSION.RELEASE + " / " + Build.FINGERPRINT +
+                "\n系统底层状态（最近主动查询）：" + SystemBackend.snapshot +
                 "\n规格：" + width + "x" + height + "，帧率上限 " + fps + "\n编码器：" + codecName +
                 "\n范围：无声 SDR / AVC；不改变系统合成后端；无自动 GLES 回退。" +
                 "\n视频有效保存：" + saved + "\n编码帧数：" + frames + "\n视频时间轴微秒：" + lastPts +

@@ -17,3 +17,6 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     packaging { jniLibs { useLegacyPackaging = false } }
 }
+
+val packageBackendModule by tasks.registering(Exec::class) { commandLine("python3", file("package-module.py").absolutePath) }
+tasks.named("preBuild") { dependsOn(packageBackendModule) }

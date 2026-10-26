@@ -44,8 +44,8 @@ public final class MainActivity extends Activity {
         text(layout, "录屏后端测试", 28);
         text(layout, "独立实验应用 · 0.1\n仅测试无声 SDR 录屏。不会替换小米录屏或修改系统库。", 14);
         backend = new RadioGroup(this); backend.setOrientation(RadioGroup.HORIZONTAL);
-        for (int i=0;i<2;i++) { RadioButton b = new RadioButton(this); b.setId(100+i); b.setText(i==0 ? "GLES 3" : "Vulkan"); backend.addView(b); }
-        backend.check(100); layout.addView(backend);
+        for (int i=0;i<2;i++) { RadioButton b = new RadioButton(this); b.setId(View.generateViewId()); b.setText(i==0 ? "GLES 3" : "Vulkan"); backend.addView(b); }
+        backend.check(backend.getChildAt(0).getId()); layout.addView(backend);
         text(layout, "切换应用内的画面接收与 GPU 处理后端。两种方式共用虚拟显示和硬件编码器；Vulkan 不可用时会报错，不会自动换成 GLES。", 14);
         resolution = spinner(layout, "短边分辨率", new String[]{"720 像素", "1080 像素"});
         fps = spinner(layout, "最高录制帧率", new String[]{"60 FPS", "30 FPS"});
@@ -63,6 +63,7 @@ public final class MainActivity extends Activity {
         stop.setOnClickListener(v -> { if (RecordingService.active) startService(new Intent(this, RecordingService.class).setAction("stop")); });
         text(layout, "视频：Movies/MI-Recorder-Test\n报告：Download/MI-Recorder-Test\n建议相同游戏场景分别录制。报告中的帧率属于录屏，不代表游戏帧率。", 14);
         status = new TextView(this); status.setTextIsSelectable(true); layout.addView(status);
+        text(layout, "", 12); new SystemBackend(this, layout);
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
@@ -73,7 +74,7 @@ public final class MainActivity extends Activity {
         int longEdge = ((int)Math.round(shortEdge * ratio) + 1) & ~1;
         boolean landscape = orientation.getSelectedItemPosition() == 0;
         Intent intent = new Intent(this, RecordingService.class).putExtra("consent", data).putExtra("result", result)
-            .putExtra("vulkan", backend.getCheckedRadioButtonId() == 101)
+            .putExtra("vulkan", backend.getCheckedRadioButtonId() == backend.getChildAt(1).getId())
             .putExtra("width", landscape ? longEdge : shortEdge).putExtra("height", landscape ? shortEdge : longEdge)
             .putExtra("fps", fps.getSelectedItemPosition() == 0 ? 60 : 30)
             .putExtra("seconds", new int[]{60,120,30}[duration.getSelectedItemPosition()]);

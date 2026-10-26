@@ -13,8 +13,9 @@ final class RecorderModuleBridge {
     private static Map<String,String> root=Map.of();
     private static String message="", rootStatus="等待底层模块回报";
     private static long lastRoot, lastAttempt=-10000;
-    private static boolean busy;
-    private record Child(int pid,String phase,String backend,long time){}
+    private static boolean reading,saving;
+    private static String pendingMode="",selectionError="";
+    private record Child(int pid,String phase,String backend,String detail,long time){}
     private static Child currentChild(long now) {
         return children.values().stream().filter(c->now-c.time<30000)
             .max(Comparator.<Child>comparingInt(c->switch(c.phase){
@@ -22,45 +23,58 @@ final class RecorderModuleBridge {
             }).thenComparingLong(c->c.time)).orElse(null);
     }
     static synchronized boolean recording() {
-        return children.values().stream().anyMatch(c->c.phase.equals("recording")&&SystemClock.elapsedRealtime()-c.time<30000);
+        return children.values().stream().anyMatch(c->RecorderOptions.recording(c.phase)&&SystemClock.elapsedRealtime()-c.time<30000);
     }
     static synchronized void refresh() {
         long now=SystemClock.elapsedRealtime();
-        if(busy || now-lastAttempt<10000)return;
-        busy=true;lastAttempt=now;io.execute(()->update("status",""));
+        if(reading || saving || now-lastAttempt<10000)return;
+        reading=true;lastAttempt=now;io.execute(()->update("status",""));
     }
-    static synchronized String summary() {
+    static synchronized Bundle snapshot() {
         long now=SystemClock.elapsedRealtime();
         Child child=currentChild(now);
-        String recorder=child==null?"等待小米录屏回报":child.phase.equals("recording")?"正在使用 "+child.backend+" 录屏":child.phase.equals("unsupported")?"录屏接口未适配":child.phase.equals("error")?"录屏后端异常":"录屏注入已加载";
-        return (now-lastRoot>35000?"底层通讯等待验证":rootStatus)+"\n"+recorder;
+        boolean fresh=lastRoot>0&&now-lastRoot<35000;
+        Bundle response=new Bundle();
+        response.putString("recorder_phase",child==null?"unknown":child.phase);
+        response.putString("recorder_backend",child==null?"idle":child.backend);
+        response.putString("recorder_detail",child==null?"":child.detail);
+        response.putBoolean("recording",recording());
+        response.putString("root_status",lastRoot>0&&!fresh?"底层状态已过期，正在重新确认":rootStatus);
+        response.putBoolean("root_fresh",fresh);
+        response.putString("root_stage",fresh?root.getOrDefault("stage","waiting"):"unknown");
+        response.putString("selected",root.getOrDefault("selected","default"));
+        response.putString("actual",fresh?root.getOrDefault("actual","unknown"):"unknown");
+        response.putString("message",message);
+        response.putString("pending_system",pendingMode);
+        response.putString("selection_error",selectionError);
+        response.putBoolean("system_saving",saving);
+        return response;
     }
     static synchronized Bundle ping(int pid,Bundle request) {
         String nonce=request==null?"":request.getString("nonce","");
         if(!nonce.matches("[a-f0-9-]{36}"))throw new IllegalArgumentException("Invalid nonce");
         String phase=request.getString("phase","loaded"),backend=request.getString("actual","idle");
         if(!List.of("loaded","prepared","recording","idle","error","unsupported").contains(phase) || !List.of("gles","vulkan","idle").contains(backend))throw new IllegalArgumentException("Invalid recorder status");
-        children.put(pid,new Child(pid,phase,backend,SystemClock.elapsedRealtime()));
+        String detail=request.getString("detail","");if(detail.length()>2048)detail=detail.substring(0,2048);
+        children.put(pid,new Child(pid,phase,backend,detail,SystemClock.elapsedRealtime()));
         children.values().removeIf(c->SystemClock.elapsedRealtime()-c.time>30000);
         Child child=currentChild(SystemClock.elapsedRealtime());
-        if(!busy){busy=true;lastAttempt=SystemClock.elapsedRealtime();io.execute(()->update("report",child.phase+" "+child.backend+" "+child.pid));}
-        Bundle response=new Bundle();response.putString("nonce",nonce);
-        response.putString("recorder_phase",child.phase);response.putString("recorder_backend",child.backend);
-        response.putString("root_status",SystemClock.elapsedRealtime()-lastRoot>35000?"底层通讯等待验证":rootStatus);
-        response.putString("selected",root.getOrDefault("selected","default"));response.putString("actual",root.getOrDefault("actual","unknown"));response.putString("message",message);
+        if(!reading&&!saving){reading=true;lastAttempt=SystemClock.elapsedRealtime();io.execute(()->update("report",child.phase+" "+child.backend+" "+child.pid));}
+        Bundle response=snapshot();response.putString("nonce",nonce);
         return response;
     }
     static synchronized Bundle select(Bundle request) {
         String mode=request==null?"":request.getString("mode","");
         if(!List.of("default","gles","vulkan").contains(mode))throw new IllegalArgumentException("Invalid backend");
         if(recording())throw new IllegalStateException("请先停止录屏");
-        if(busy)throw new IllegalStateException("底层通讯进行中，请稍后重试");
-        busy=true;message="正在保存底层选择";io.execute(()->update("select",mode));
+        if(saving)throw new IllegalStateException("正在保存系统后端，请稍后重试");
+        saving=true;pendingMode=mode;selectionError="";io.execute(()->update("select",mode));
         Bundle reply=new Bundle();reply.putBoolean("queued",true);return reply;
     }
     private static void update(String action,String args) {
         try {
             Map<String,String> result=exchange(action,args);
+            if(action.equals("select")&&!args.equals(result.get("selected")))throw new IOException("系统后端未确认保存，请重试");
             synchronized(RecorderModuleBridge.class){
                 root=result;lastRoot=SystemClock.elapsedRealtime();
                 rootStatus=switch(result.get("stage")){
@@ -80,10 +94,12 @@ final class RecorderModuleBridge {
                     case "conflict"->"其他模块也配置了系统后端，本模块未覆盖。";
                     default->"系统默认模式不覆盖原有后端配置。";
                 };
-                if("online".equals(result.get("child")))rootStatus+="；录屏子模块回报已收到";
             }
-        }catch(Exception e){synchronized(RecorderModuleBridge.class){rootStatus="底层通讯未完成";message=e.getMessage();lastRoot=0;}}
-        finally{synchronized(RecorderModuleBridge.class){busy=false;}}
+        }catch(Exception e){synchronized(RecorderModuleBridge.class){
+            if(action.equals("select"))selectionError=e.getMessage()==null?"系统后端保存失败":e.getMessage();
+            else{rootStatus="底层模块未连接";message=e.getMessage();lastRoot=0;}
+        }}
+        finally{synchronized(RecorderModuleBridge.class){if(action.equals("select")){saving=false;pendingMode="";}else reading=false;}}
     }
     private static Map<String,String> exchange(String action,String args)throws Exception {
         String nonce=UUID.randomUUID().toString();

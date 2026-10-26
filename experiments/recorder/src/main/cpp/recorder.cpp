@@ -1,6 +1,8 @@
 #include "graphics.h"
 #include "frame_gate.h"
+#include "fence_wait.h"
 #include <android/native_window_jni.h>
+#include <android/log.h>
 #include <media/NdkImageReader.h>
 #include <jni.h>
 #include <poll.h>
@@ -12,6 +14,7 @@
 #include <chrono>
 #include <sstream>
 #include <iomanip>
+#include <utility>
 
 namespace {
 using Clock=std::chrono::steady_clock;
@@ -35,6 +38,10 @@ class Engine {
     int64_t baseTimestamp=0, firstTimestamp=0;
     std::string error, driver;
     uint64_t acquired=0, rendered=0, rateLimited=0, badTimestamps=0;
+    uint64_t fenceTimeouts=0;
+    int fenceTimeoutMs=2000;
+    bool fatalTimeout=false;
+    std::string warning;
     double totalMs=0, maxMs=0;
     int width=0,height=0,fps=0;
     bool vulkan=false;
@@ -55,12 +62,28 @@ class Engine {
                 media_status_t result=AImageReader_acquireLatestImageAsync(reader,&raw,&fence);
                 if(result==AMEDIA_IMGREADER_NO_BUFFER_AVAILABLE) continue;
                 require(result==AMEDIA_OK && raw,"Cannot acquire capture image: "+std::to_string(result));
-                auto image=imagePtr(raw);
+                // On timeout/cancellation, return the pending producer fence with
+                // the image. Closing it and recycling the buffer early is unsafe.
+                struct PendingImage {
+                    ImagePtr image; int fence;
+                    ~PendingImage(){if(image&&fence>=0)AImage_deleteAsync(image.release(),fence);else if(fence>=0)close(fence);}
+                    void ready(){if(fence>=0)close(std::exchange(fence,-1));}
+                } pending{imagePtr(raw),fence};
                 if(fence>=0) {
-                    pollfd fd{fence,POLLIN,0}; int ready;
-                    do { ready=poll(&fd,1,2000); } while(ready<0 && errno==EINTR);
-                    close(fence); require(ready>0 && (fd.revents&POLLIN),"Capture producer fence timed out");
+                    int limit;bool fatal;
+                    {std::lock_guard<std::mutex> lock(mutex);limit=fenceTimeoutMs;fatal=fatalTimeout;}
+                    auto waited=waitCaptureFence(fence,limit,[&]{std::lock_guard<std::mutex> lock(mutex);return quitting||!active;});
+                    if(waited.state==FenceState::Cancelled)continue;
+                    if(waited.state==FenceState::TimedOut) {
+                        uint64_t count;
+                        {std::lock_guard<std::mutex> lock(mutex);count=++fenceTimeouts;warning="Input frame wait timed out after "+std::to_string(waited.elapsedMs)+" ms; frame skipped";}
+                        if(fatal)throw std::runtime_error("Capture producer fence timed out (stop-on-timeout enabled)");
+                        if(count==1 || count%10==0)__android_log_print(ANDROID_LOG_WARN,"MiuiHdrRecorder","Input fence timeout: waited=%d ms, skipped=%llu; recording continues",waited.elapsedMs,static_cast<unsigned long long>(count));
+                        continue;
+                    }
+                    require(waited.state==FenceState::Ready,"Capture fence wait failed: errno="+std::to_string(waited.error)+", events="+std::to_string(waited.events)+", waited_ms="+std::to_string(waited.elapsedMs));
                 }
+                pending.ready();auto image=std::move(pending.image);
                 int64_t timestamp=0;
                 require(AImage_getTimestamp(image.get(),&timestamp)==AMEDIA_OK,"Missing capture timestamp");
                 int64_t outputTimestamp=timestamp;
@@ -101,6 +124,10 @@ public:
         std::lock_guard<std::mutex> lock(mutex); active=enabled;
         if(base>0 && baseTimestamp!=base) { baseTimestamp=base; firstTimestamp=0; }
     }
+    void setInputWait(int milliseconds,bool fatal) {
+        require(milliseconds==500||milliseconds==1000||milliseconds==2000||milliseconds==5000||milliseconds==10000,"Invalid frame wait duration");
+        std::lock_guard<std::mutex> lock(mutex);fenceTimeoutMs=milliseconds;fatalTimeout=fatal;
+    }
     void requestStop() { std::lock_guard<std::mutex> lock(mutex); quitting=true; wake.notify_all(); }
     void stop() {
         requestStop();
@@ -112,7 +139,8 @@ public:
         out<<"{\"backend\":"<<jsonString(vulkan?"vulkan":"gles")<<",\"driver\":"<<jsonString(driver)
            <<",\"acquired\":"<<acquired<<",\"submitted\":"<<rendered<<",\"rate_limited\":"<<rateLimited
            <<",\"invalid_timestamps\":"<<badTimestamps<<",\"submit_and_wait_ms_mean\":"<<(rendered?totalMs/rendered:0)
-           <<",\"submit_and_wait_ms_max\":"<<maxMs<<",\"error\":"<<jsonString(error)<<"}";
+           <<",\"submit_and_wait_ms_max\":"<<maxMs<<",\"fence_timeouts\":"<<fenceTimeouts<<",\"fence_timeout_ms\":"<<fenceTimeoutMs
+           <<",\"warning\":"<<jsonString(warning)<<",\"error\":"<<jsonString(error)<<"}";
         return out.str();
     }
     ~Engine() { stop(); if(reader) AImageReader_delete(reader); if(encoder) ANativeWindow_release(encoder); }
@@ -145,4 +173,8 @@ extern "C" JNIEXPORT void JNICALL Java_dev_local_recorderlab_NativeBridge_config
 }
 extern "C" JNIEXPORT void JNICALL Java_dev_local_recorderlab_NativeBridge_requestStop(JNIEnv*,jclass,jlong handle) {
     if(handle) reinterpret_cast<Engine*>(handle)->requestStop();
+}
+extern "C" JNIEXPORT void JNICALL Java_dev_local_recorderlab_NativeBridge_setInputWait(JNIEnv* env,jclass,jlong handle,jint milliseconds,jboolean fatal) {
+    try {require(handle!=0,"No capture engine");reinterpret_cast<Engine*>(handle)->setInputWait(milliseconds,fatal);}
+    catch(const std::exception& e){fail(env,e.what());}
 }

@@ -54,7 +54,7 @@ private const val RELEASE = "1.5.5"
 private const val PROJECT = "https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced"
 
 @Composable
-private fun ManagerScaffold(title: String, onBack: (() -> Unit)? = null,
+internal fun ManagerScaffold(title: String, onBack: (() -> Unit)? = null,
                             actions: @Composable RowScope.() -> Unit = {},
                             bottomSpace: Int = 24, collapse: Boolean = false,
                             content: @Composable ColumnScope.() -> Unit) {
@@ -89,9 +89,6 @@ internal fun ManagerHome(onInstall: () -> Unit, onTest: () -> Unit, onSettings: 
     val screenshotVersion = remember { try {
         context.packageManager.getPackageInfo("com.miui.screenshot", 0).versionName ?: "—"
     } catch (_: Exception) { "未检测到" } }
-    val recorderStatus by produceState(initialValue = RecorderModuleBridge.summary()) {
-        while (true) { RecorderModuleBridge.refresh(); value = RecorderModuleBridge.summary(); kotlinx.coroutines.delay(2000) }
-    }
     val haptic = LocalHapticFeedback.current
     ManagerScaffold("小米截屏HDR增强", bottomSpace = 108, actions = {
         TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
@@ -144,19 +141,6 @@ internal fun ManagerHome(onInstall: () -> Unit, onTest: () -> Unit, onSettings: 
                 InfoRow("设备", Build.MODEL)
                 InfoRow("系统版本", "Android ${Build.VERSION.RELEASE}")
                 InfoRow("系统截屏", screenshotVersion, last = true)
-            }
-        }
-        Surface(onClick = { RecorderControl.open(context) }, enabled = !RecorderControl.busy,
-            shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceBright) {
-            Row(Modifier.fillMaxWidth().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Videocam, null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("录屏测试", style = MaterialTheme.typography.titleMedium)
-                    Text("在小米录屏设置中选择 GLES / Vulkan", style = MaterialTheme.typography.bodySmall)
-                    Text(recorderStatus, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
             }
         }
         Segments {

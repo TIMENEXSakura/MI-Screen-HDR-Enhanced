@@ -68,7 +68,7 @@ final class RecorderHook {
             compatible=true;
             try { RecorderPreferences.install(loader); } catch(Throwable e) {detail="小米设置页接入失败："+e;HookRuntime.log(detail);}
             monitor.scheduleWithFixedDelay(RecorderHook::check,1,2,TimeUnit.SECONDS);
-            HookRuntime.log("Xiaomi recorder graph adapter installed; Vulkan selected only by native settings");
+            HookRuntime.log("Xiaomi recorder graph adapter installed; shared backend settings connected");
         }catch(Throwable e){compatible=false;detail="录屏接口未适配："+e;phase="unsupported";HookRuntime.log(detail);}
     }
     private static void installGraph(ClassLoader loader)throws Exception {
@@ -85,18 +85,20 @@ final class RecorderHook {
             throw new IllegalStateException("无法确认录屏调用链去优化，保留原生后端");
         // Resolve the whole adapter before installing interception points.
         HookRuntime.add(prepare,new HookRuntime.Callback(){
-            @Override protected void before(HookRuntime.Call c){configuring.set(c.thisObject);}
-            @Override protected void after(HookRuntime.Call c){configuring.remove();}
+            @Override protected void before(HookRuntime.Call c){configuring.set(c.thisObject);phase="prepared";detail="";RecorderCommunication.ping();}
+            @Override protected void after(HookRuntime.Call c){configuring.remove();if(c.hasThrowable()){phase="error";detail="小米录屏准备失败";}RecorderCommunication.ping();}
         });
         HookRuntime.add(initialize,new HookRuntime.Callback(){@Override protected void before(HookRuntime.Call c){
             Context app=context;
             if(!compatible || app==null)return;
             try {
-                if(!"vulkan".equals(RecorderCommunication.renderer(app)))return;
+                Bundle options=RecorderCommunication.settings(app,false);
+                if(!"vulkan".equals(options.getString("backend")))return;
                 Object recorder=configuring.get();if(recorder==null)throw new IllegalStateException("Unknown encoder construction path");
                 int rate=(Integer)fps.invoke(settings.get(recorder));
                 long handle=NativeBridge.create((Surface)c.args[0],width.getInt(c.thisObject),height.getInt(c.thisObject),rate,true);
                 try {
+                    NativeBridge.setInputWait(handle,options.getInt("timeout_ms",2000),options.getBoolean("timeout_fatal",false));
                     NativeBridge.configure(handle,false,0);
                     Session session=new Session(handle,NativeBridge.inputSurface(handle),recorder);
                     sessions.put(c.thisObject,session); input.set(c.thisObject,session.input);

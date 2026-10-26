@@ -52,6 +52,8 @@ jobs:
         run: |
           c++ -std=c++17 -Wall -Wextra -Werror experiments/recorder/tests/frame_gate_test.cpp -o /tmp/hdr155-frame-test
           /tmp/hdr155-frame-test | tee dist/recorder-tests.log
+          c++ -std=c++17 -pthread -Wall -Wextra -Werror experiments/recorder/tests/fence_wait_test.cpp -o /tmp/hdr155-fence-test
+          /tmp/hdr155-fence-test | tee -a dist/recorder-tests.log
           bash tests/run-host-tests.sh 2>&1 | tee dist/checks.log
           bash tests/build-device-tests.sh 2>&1 | tee dist/device-tests-build.log
           bash tests/build-image-tests.sh 2>&1 | tee dist/image-tests-build.log

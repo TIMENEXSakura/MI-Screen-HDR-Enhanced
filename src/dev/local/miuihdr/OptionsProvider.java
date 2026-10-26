@@ -11,17 +11,15 @@ public final class OptionsProvider extends ContentProvider {
   if(packages!=null)for(String name:packages){if("com.miui.screenshot".equals(name))screenshot=true;if("com.miui.screenrecorder".equals(name))recorder=true;}
   if(method.startsWith("recorder_")){
    if(!own&&!recorder)throw new SecurityException("Caller is not the recorder app");
-   if("recorder_settings".equals(method)||"recorder_configure".equals(method)){
-    SharedPreferences settings=getContext().getSharedPreferences("recorder_test",Context.MODE_PRIVATE);
-    if("recorder_configure".equals(method)){
-     String backend=extras==null?"":extras.getString("backend","");
-     if(!"gles".equals(backend)&&!"vulkan".equals(backend))throw new IllegalArgumentException("Invalid renderer");
-     if(RecorderModuleBridge.recording())throw new IllegalStateException("请先结束录屏");
-     if(!settings.edit().putString("backend",backend).commit())throw new IllegalStateException("无法保存录屏后端");
-    }
-    Bundle reply=new Bundle();reply.putString("backend",settings.getString("backend","gles"));return reply;
+   if("recorder_settings".equals(method)){
+    if(extras!=null&&extras.getBoolean("refresh",false))RecorderModuleBridge.refresh();
+    return RecorderSettings.read(getContext());
    }
-   if("recorder_ping".equals(method))return RecorderModuleBridge.ping(Binder.getCallingPid(),extras);
+   if("recorder_configure".equals(method))return RecorderSettings.write(getContext(),extras);
+   if("recorder_ping".equals(method)){
+    Bundle reply=RecorderModuleBridge.ping(Binder.getCallingPid(),extras);
+    reply.putAll(RecorderSettings.read(getContext()));return reply;
+   }
    if("recorder_select".equals(method))return RecorderModuleBridge.select(extras);
    throw new IllegalArgumentException("Unknown recorder method");
   }

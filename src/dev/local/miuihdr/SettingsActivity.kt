@@ -81,7 +81,7 @@ class SettingsActivity : ComponentActivity() {
 
     @Composable private fun ModuleUi() {
         var full by rememberSaveable { mutableStateOf(false) }
-        fun back() { if (full) full = false else page = if (page == 5) aboutReturn else 0 }
+        fun back() { if (full) full = false else page = when (page) { 5 -> aboutReturn; 6 -> 2; else -> 0 } }
         BackHandler(page != 0 || full) { back() }
         Surface(Modifier.fillMaxSize(), color = if (full) Color.Black else MaterialTheme.colorScheme.surfaceContainer) {
             Box(Modifier.fillMaxSize()) {
@@ -96,6 +96,7 @@ class SettingsActivity : ComponentActivity() {
                         3 -> ManagerInstall(onBack = { back() }, onInstall = { uri -> MountJob.start(applicationContext,uri); page = 4 })
                         4 -> ManagerFlash(onBack = { back() })
                         5 -> ManagerAbout(onBack = { back() })
+                        6 -> RecorderSettingsPage(onBack = { back() })
                         else -> ManagerHome(onInstall = { page = if(MountJob.busy) 4 else 3 }, onTest = { page = 1 },
                             onSettings = { page = 2 }, onAbout = { aboutReturn = 0; page = 5 }, onLog = { page = 4 })
                     }
@@ -135,6 +136,19 @@ class SettingsActivity : ComponentActivity() {
             }
             Text("下次截图生效。SDR 观感会变化，保存耗时和 JPG 体积可能增加。JPG 仍有压缩误差；不支持的输入自动沿用原流程。", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
+            SectionTitle("录屏")
+            Card(onClick = { page = 6 }, shape = RoundedCornerShape(28.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
+                Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Videocam, null, tint = MaterialTheme.colorScheme.primary)
+                    Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                        Text("录屏设置", style = MaterialTheme.typography.titleMedium)
+                        Text("录制后端、系统合成与特殊设置", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Default.ChevronRight, "进入录屏设置")
+                }
+            }
             TextButton(onClick = { aboutReturn = 2; page = 5 }) { Icon(Icons.Default.Info, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("关于小米截屏HDR增强") }
         }
     }

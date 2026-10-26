@@ -101,12 +101,15 @@ final class HdrCaptureHooks {
                 s.put("status",HdrSignal.inspect(original).hdr?"native_gainmap_retained":"neutral_gainmap_retained");return original;
             }
             if(hardware.getFormat()!=HardwareBuffer.RGBA_FP16||!(data instanceof Integer))throw new IllegalStateException("系统未返回已确认格式与色彩范围的 FP16 画面");
-            HdrCaptureImage.Result result=HdrCaptureImage.convert(original,(Integer)data,ratio,hdr,s.config.captureRgb);
-            if(hdr&&!result.bitmap().hasGainmap()){
-                result.bitmap().recycle();
-                throw new IllegalStateException("系统标记含 HDR，但高精度画面没有可重建的增益；回退原有截图");
-            }
-            s.put("status",result.bitmap().hasGainmap()?"rebuilt_hdr":"captured_sdr");
+            s.put("preciseReadStarted",true);
+            HdrCaptureImage.Result result=HdrCaptureImage.read(original,(Integer)data,ratio,hdr,s.config.captureRgb,failure->{
+                s.put("rgbFailure",failure.toString());
+                MiuiHook.log("RGB capture rejected; trying normal precise conversion of the same frame: "+failure);
+            });
+            boolean downgraded=s.config.captureRgb&&!result.rgb();
+            s.put("gainMode",result.rgb()?"rgb":"normal");
+            s.put("status",result.bitmap().hasGainmap()?(downgraded?"rebuilt_hdr_normal_fallback":"rebuilt_hdr"):
+                    (downgraded?"captured_sdr_normal_fallback":"captured_sdr"));
             s.put("width",result.bitmap().getWidth());s.put("height",result.bitmap().getHeight());
             s.put("channelPeaks",new JSONArray(new float[]{result.report()[0],result.report()[1],result.report()[2]}));
             s.put("gainMax",new JSONArray(new float[]{result.report()[3],result.report()[4],result.report()[5]}));
@@ -114,6 +117,7 @@ final class HdrCaptureHooks {
             describe(s,result.bitmap(),"output");
             return result.bitmap();
         }catch(Throwable failure){
+            if(s.report.optBoolean("preciseReadStarted"))s.put("normalFailure",failure.toString());
             s.put("reason",failure.toString());s.put("status","fallback_requested");
             MiuiHook.log("HDR high-precision capture rejected: "+failure);
             return fallback(s,original);

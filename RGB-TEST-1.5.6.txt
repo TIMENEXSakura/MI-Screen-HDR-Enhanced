@@ -21,6 +21,11 @@ Screenshot handling:
 RGB retention defaults on, preserves existing gain channels, bypasses pixel
 rebasing and uses JPEG quality 100 with 4:4:4. It does not request FP16 capture.
 Experimental display-color/compatibility capture stays an independent opt-in.
+If RGB conversion or its HDR validation fails, retry ordinary precise gain
+conversion using the same FP16 snapshot and metadata. Only after both fail may
+the caller recapture through the original system path. With RGB disabled, try
+ordinary precise conversion directly. Each rejection is recorded separately;
+the fallback is local to that frame and never changes the user's RGB setting.
 Diagnostics distinguish single-channel, identical RGB and distinct RGB maps.
 Neutral standard gainmap metadata does not rule out proprietary display HDR.
 

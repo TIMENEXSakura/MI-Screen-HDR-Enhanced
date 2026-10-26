@@ -9,7 +9,7 @@ mkdir -p "$HDR_TEST_OUT/src/dev/local/miuihdr" "$HDR_TEST_OUT/classes" "$HDR_TES
 for name in NativeBridge GainmapPrecision HdrJpeg444 HdrSignal PreviewHdr ShellGainmap EditorGainmap CaptureRatio HdrCaptureImage; do
  cp "$HDR_REPO/src/dev/local/miuihdr/$name.java" "$HDR_TEST_OUT/src/dev/local/miuihdr/"
 done
-for name in PrecisionCodecTest PrecisionBenchmark PreviewHdrTest ShellTest EditorGainmapTest HdrCaptureImageTest RgbGainmapPipelineTest; do
+for name in PrecisionCodecTest PrecisionBenchmark PreviewHdrTest ShellTest EditorGainmapTest HdrCaptureImageTest HdrCaptureFallbackTest RgbGainmapPipelineTest; do
  cp "$HDR_REPO/tests/$name.java" "$HDR_TEST_OUT/src/dev/local/miuihdr/"
 done
 cat > "$HDR_TEST_OUT/src/dev/local/miuihdr/MiuiHook.java" <<'JAVA'

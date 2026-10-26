@@ -78,8 +78,11 @@ internal fun HdrCaptureSettingsCard() {
                 val report = try { JSONObject(s.getString("hdr_capture_report", "")) } catch(_: Exception) { null }
                 val status = when(report?.optString("status")) {
                     "rebuilt_hdr" -> "最近一次：已重建 HDR 增益图"
+                    "rebuilt_hdr_normal_fallback" -> "最近一次：RGB 读取失败，已使用普通精准读取保留 HDR"
+                    "captured_sdr_normal_fallback" -> "最近一次：RGB 读取失败，普通精准读取完成，画面为 SDR"
                     "captured_sdr" -> "最近一次：画面中未检测到有效 HDR 增益"
-                    "native_fallback" -> "最近一次：实验路径未通过校验，已使用原有截图"
+                    "native_fallback" -> if(report?.optBoolean("preciseReadStarted") == true)
+                        "最近一次：精准读取均未通过校验，已回退系统截图" else "最近一次：高精度画面不可用，已回退系统截图"
                     "unsupported_native_retained" -> "最近一次：实验路径暂不可用，保留原有截图"
                     "native_gainmap_retained" -> "最近一次：系统已返回增益图，保留原结果"
                     "neutral_gainmap_retained" -> "最近一次：已保留增益图，标准参数未体现增益；私有 HDR 尚未确认"

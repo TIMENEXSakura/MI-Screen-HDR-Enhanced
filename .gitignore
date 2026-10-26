@@ -17,3 +17,6 @@ assets/mount-template.zip
 *.log
 __pycache__/
 
+
+recorder-dist/
+experiments/recorder/src/main/assets/backend-test.zip

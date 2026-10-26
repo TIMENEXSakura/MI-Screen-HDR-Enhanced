@@ -1,0 +1,6 @@
+id=mi_recorder_backend_test
+name=MI Recorder Backend Test
+version=0.1-test
+versionCode=1
+author=MI Screen HDR Enhanced project
+description=Experimental GLES/Vulkan RenderEngine selector. No system library replacement. Controlled by the independent recording test APK; reboot required.

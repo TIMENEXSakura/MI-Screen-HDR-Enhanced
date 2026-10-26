@@ -4,6 +4,9 @@ on:
     branches: ["test/recorder-vulkan"]
     paths: ["experiments/recorder/**", ".github/workflows/recorder-test.yml"]
   workflow_dispatch:
+defaults:
+  run:
+    shell: bash
 permissions:
   contents: read
 concurrency:
@@ -33,12 +36,14 @@ jobs:
           mkdir -p recorder-dist
           c++ -std=c++17 -Wall -Wextra -Werror experiments/recorder/tests/frame_gate_test.cpp -o /tmp/recorder-frame-test
           /tmp/recorder-frame-test | tee recorder-dist/checks.txt
+          python3 experiments/recorder/tests/test_boot_control.py | tee -a recorder-dist/checks.txt
       - name: Build standalone APK
         run: |
           ./gradlew -p experiments/recorder --no-daemon --console=plain assembleRelease lintRelease 2>&1 | tee recorder-dist/build.log
       - name: Verify and record provenance
         run: |
           cp experiments/recorder/build/outputs/apk/release/*-unsigned.apk recorder-dist/MI-Recorder-Backend-Test-0.1-unsigned.apk
+          cp experiments/recorder/src/main/assets/backend-test.zip recorder-dist/MI-Recorder-Backend-Test-0.1-module.zip
           python3 experiments/recorder/verify.py recorder-dist/MI-Recorder-Backend-Test-0.1-unsigned.apk | tee -a recorder-dist/checks.txt
           "$ANDROID_HOME/build-tools/37.0.0/aapt2" dump badging recorder-dist/MI-Recorder-Backend-Test-0.1-unsigned.apk > recorder-dist/apk-info.txt
           cp experiments/recorder/build/reports/lint-results-release.* recorder-dist/
@@ -47,7 +52,7 @@ jobs:
           echo "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > recorder-dist/ci-url.txt
           git archive HEAD experiments/recorder .github/workflows/recorder-test.yml | gzip > recorder-dist/source.tar.gz
           cd recorder-dist
-          sha256sum *.apk source.tar.gz > SHA256SUMS.txt
+          sha256sum *.apk *.zip source.tar.gz > SHA256SUMS.txt
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:

@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(recorderlab LANGUAGES CXX)
+add_library(recorderlab SHARED recorder.cpp gles.cpp vulkan.cpp)
+target_compile_features(recorderlab PRIVATE cxx_std_17)
+target_compile_definitions(recorderlab PRIVATE VK_USE_PLATFORM_ANDROID_KHR)
+target_link_options(recorderlab PRIVATE "-Wl,-z,max-page-size=16384")
+target_link_libraries(recorderlab android mediandk log EGL GLESv3 vulkan)

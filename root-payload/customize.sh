@@ -21,12 +21,15 @@ case "$HDR_VISIBLE" in "$HDR_ORIGINAL"|"$HDR_PATCHED") ;;
  *) abort "System library changed after generation; regenerate in the Xposed APK.";;
 esac
 set_perm_recursive "$MODPATH" 0 0 0755 0644
-for script in post-fs-data.sh service.sh boot-completed.sh action.sh; do set_perm "$MODPATH/$script" 0 0 0755; done
+for script in post-fs-data.sh service.sh boot-completed.sh action.sh control.sh; do set_perm "$MODPATH/$script" 0 0 0755; done
 set_perm "$MODPATH/bin/hdrpatch" 0 0 0755
 set_perm "$MODPATH/$HDR_PAYLOAD_REL" 0 0 0644 u:object_r:system_file:s0
 set_perm "$MODPATH/backup/original.so" 0 0 0644 u:object_r:system_file:s0
+printf 'default\n' > "$MODPATH/render-mode"
+cat /proc/sys/kernel/random/uuid > "$MODPATH/installation.id" || abort "无法建立底层模块通讯标识。"
+chmod 0600 "$MODPATH/render-mode" "$MODPATH/installation.id"
 # Skip markers may be owned by a provider; the fresh generated ZIP has none.
-for marker in boot-pending rollback.txt; do
+for marker in boot-pending rollback.txt boot-message render-pending render-result render-attempted render-original-property; do
  [ ! -f "$MODPATH/$marker" ] || unlink "$MODPATH/$marker"
 done
 case "$(getprop persist.sys.locale)" in zh*) sed -i 's/^name=.*/name=小米截屏HDR增强/' "$MODPATH/module.prop";; esac

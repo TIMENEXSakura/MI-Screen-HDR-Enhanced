@@ -17,7 +17,7 @@ final class SystemBackend {
     private final Activity activity;
     private final TextView state;
     private final RadioGroup modes;
-    private final Button read, save, export;
+    private final Button read, save;
     private boolean busy;
     private static String label(String value) {
         return switch (value) { case "gles" -> "GLES"; case "vulkan" -> "Vulkan"; case "default" -> "系统默认"; default -> "尚未确认"; };
@@ -26,18 +26,16 @@ final class SystemBackend {
         this.activity=activity;
         TextView title = new TextView(activity); title.setText("系统底层后端 · 可选测试"); title.setTextSize(20); parent.addView(title);
         TextView explanation = new TextView(activity);
-        explanation.setText("与上面的录屏后端分开设置。需要 Root 和配套模块，保存后重启生效，会影响整个系统合成。模块只配置启动选项，不替换系统库。\n先导出模块，在现有 Root 管理器中安装。已安装小米截屏 HDR 增强时可保留原有库修复。");
+        explanation.setText("与上面的录屏后端分开设置。需要 Root 和配套模块，保存后重启生效，会影响整个系统合成。后端切换只增加启动配置，不再叠加第二份库替换。\n请从 HDR 增强主页安装或更新 1.5.5 底层模块。与原有 HDR 修复共用同一模块。");
         parent.addView(explanation);
         modes=new RadioGroup(activity); modes.setOrientation(RadioGroup.HORIZONTAL);
         for(int i=0;i<3;i++) { RadioButton b=new RadioButton(activity); b.setId(android.view.View.generateViewId()); b.setText(new String[]{"系统默认","GLES","Vulkan"}[i]); modes.addView(b); }
         modes.check(modes.getChildAt(0).getId()); parent.addView(modes);
         read=new Button(activity); read.setText("读取底层状态（Root）"); parent.addView(read);
         save=new Button(activity); save.setText("保存底层选择 · 重启生效"); parent.addView(save); save.setEnabled(false);
-        export=new Button(activity); export.setText("导出底层测试模块 ZIP"); parent.addView(export);
         state=new TextView(activity); state.setTextIsSelectable(true); state.setText("底层配置未读取；录屏测试可以直接使用当前系统后端。"); parent.addView(state);
         read.setOnClickListener(v -> operate(null));
         save.setOnClickListener(v -> operate(new String[]{"default","gles","vulkan"}[modes.indexOfChild(modes.findViewById(modes.getCheckedRadioButtonId()))]));
-        export.setOnClickListener(v -> exportModule());
     }
     private void operate(String mode) {
         if(busy) return;
@@ -82,7 +80,7 @@ final class SystemBackend {
         String script="[ \"$(id -u)\" = 0 ] || exit 10\n"+
             "for base in /data/adb/modules /data/adb/modules_update; do\n for directory in \"$base\"/*; do\n"+
             "[ -f \"$directory/control.sh\" ] || continue\n"+
-            "[ \"$(cat \"$directory/communication.protocol\" 2>/dev/null)\" = mi-recorder-render/1 ] || continue\n"+
+            "[ \"$(cat \"$directory/communication.protocol\" 2>/dev/null)\" = mi-screen-hdr-enhanced/2 ] || continue\n"+
             "printf 'current_boot=%s\\n' \"$(cat /proc/sys/kernel/random/boot_id)\"\n"+
             "/system/bin/sh \"$directory/control.sh\" "+(mode==null?"status":"select")+" "+challenge+" "+(mode==null?"":mode)+"\nexit $?\ndone\ndone\nexit 11";
         Process process=new ProcessBuilder("su","-c",script).redirectErrorStream(true).start();
@@ -97,7 +95,7 @@ final class SystemBackend {
         try {
             if(!process.waitFor(25,TimeUnit.SECONDS)) throw new IOException("读取超时，请检查 Root 授权。");
             String response=output.get(2,TimeUnit.SECONDS);
-            if(process.exitValue()==11) throw new IOException("未找到配套模块。请导出 ZIP，在 Root 管理器安装后重试。");
+            if(process.exitValue()==11) throw new IOException("请返回 HDR 增强主页安装或更新 1.5.5 底层模块，再读取状态。");
             if(process.exitValue()!=0) throw new IOException(response.contains("error=conflict")?"检测到其他模块正在设置系统后端，请先恢复其默认设置。":
                 response.contains("error=unsupported")?"系统未检测到所需后端，保留默认配置。":
                 response.contains("error=boot_busy")?"系统后端仍在启动校验中，请稍后重试。":
@@ -109,7 +107,7 @@ final class SystemBackend {
                 if(at<1 || fields.put(line.substring(0,at),line.substring(at+1))!=null) throw new IOException("模块通讯格式异常");
             }
             String uuid="[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}";
-            if(!"mi-recorder-render/1".equals(fields.get("protocol")) || !challenge.equals(fields.get("challenge")) ||
+            if(!"mi-screen-hdr-enhanced/2".equals(fields.get("protocol")) || !challenge.equals(fields.get("challenge")) ||
                 !fields.getOrDefault("installation","").matches(uuid) || !fields.getOrDefault("boot","").matches(uuid) ||
                 !fields.get("boot").equals(fields.get("current_boot")) ||
                 !fields.getOrDefault("selected","").matches("default|gles|vulkan") ||
@@ -118,29 +116,5 @@ final class SystemBackend {
                 throw new IOException("模块通讯校验未通过，未将其标记为已生效。");
             return fields;
         } finally { process.destroyForcibly(); output.cancel(true); }
-    }
-    private void exportModule() {
-        if(busy) return;
-        busy=true; export.setEnabled(false);
-        new Thread(() -> {
-            String result; Uri uri=null;
-            try {
-                String name="MI-Recorder-Backend-Test-0.1-"+System.currentTimeMillis()+".zip";
-                ContentValues values=new ContentValues(); values.put(MediaStore.MediaColumns.DISPLAY_NAME,name);
-                values.put(MediaStore.MediaColumns.MIME_TYPE,"application/zip"); values.put(MediaStore.MediaColumns.RELATIVE_PATH,"Download/MI-Recorder-Test");
-                values.put(MediaStore.MediaColumns.IS_PENDING,1);
-                uri=activity.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);
-                if(uri==null) throw new IOException("无法创建 ZIP");
-                try(InputStream in=activity.getAssets().open("backend-test.zip"); OutputStream out=activity.getContentResolver().openOutputStream(uri)) {
-                    if(out==null) throw new IOException("无法写入 ZIP"); in.transferTo(out);
-                }
-                values.clear(); values.put(MediaStore.MediaColumns.IS_PENDING,0); activity.getContentResolver().update(uri,values,null,null);
-                result="已导出到 Download/MI-Recorder-Test/"+name+"\n请在 Magisk / KernelSU / APatch 管理器中安装，再回来读取底层状态。";
-            } catch(Exception e) {
-                if(uri!=null) activity.getContentResolver().delete(uri,null,null);
-                result="导出失败："+e.getMessage();
-            }
-            String message=result; activity.runOnUiThread(() -> { busy=false; export.setEnabled(true); state.setText(message); });
-        },"export-backend-module").start();
     }
 }

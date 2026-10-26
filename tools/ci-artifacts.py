@@ -28,5 +28,5 @@ with (dist / 'SHA256SUMS.txt').open('w') as stream:
         stream.write(hashlib.sha256(path.read_bytes()).hexdigest() + '  ' + path.name + '\n')
 with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as stream:
     stream.write(f'Built **{version}** from `{commit}`.\n\n')
-    stream.write('Host tests and API 102 / native packaging checks passed. The APK artifact is unsigned; install the signed release asset.\n\n')
+    stream.write('Host tests and API 102 / native packaging checks passed. The APK artifact is unsigned and requires signing before installation. This workflow does not publish a release.\n\n')
     stream.write(f'Unsigned APK SHA-256: `{info["unsigned_apk_sha256"]}`\n')

@@ -19,6 +19,7 @@ while [ "$hdr_elapsed" -lt 180 ]; do
  if [ "$hdr_changes" -ge 3 ]; then hdr_rollback 'SurfaceFlinger repeatedly restarted during boot.'; exit 0; fi
  if [ "$hdr_stable" -ge 15 ] && [ "$(getprop sys.boot_completed)" = 1 ]; then
   if [ "$(hdr_sha "$HDR_TARGET")" != "$HDR_PATCHED" ]; then hdr_rollback 'Overlay changed during startup.'; exit 0; fi
+  render_finish
   unlink "$MODDIR/boot-pending"
   printf 'PASS: boot completed; SF stable; patch visible. HDR output still needs content testing.\n' > "$MODDIR/boot-check.txt"
   exit 0

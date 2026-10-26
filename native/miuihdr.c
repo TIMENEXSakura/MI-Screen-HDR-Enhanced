@@ -14,6 +14,9 @@ typedef struct {uint32_t version;HookFn hook_func;int (*unhook_func)(void *);} N
 static HookFn hook_func;
 static int (*original_flags)(int,int);
 static atomic_int installed=0;
+/* The recorder is also in the module scope. Only the screenshot Java entry
+ * requests this HDR gate; loading the native API must not change recording. */
+static atomic_int gate_requested=0;
 static int keep_hdr(int flags,int mask){
  if((mask&0x1000000)&&(flags&0x1000000)){flags&=~0x1000000;LOG("Native HDR gate intercepted; mask=0x%x",mask);}
  return original_flags(flags,mask);
@@ -48,12 +51,12 @@ static int install_gate(void *loaded){
  }
  atomic_flag_clear(&resolving);return result;
 }
-static void library_loaded(const char *name,void *handle){if(handle&&!atomic_load(&installed))install_gate(handle);}
+static void library_loaded(const char *name,void *handle){if(handle&&atomic_load(&gate_requested)&&!atomic_load(&installed))install_gate(handle);}
 __attribute__((visibility("default"),used)) LoadedFn native_init(const NativeAPIEntries *api){
  if(api&&api->hook_func){hook_func=api->hook_func;LOG("LSPosed native API ready version=%u",api->version);}return library_loaded;
 }
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm,void *unused){LOG("SO loaded in screenshot process");return JNI_VERSION_1_6;}
-JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_installGate(JNIEnv *env,jclass clazz){return install_gate(NULL);}
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm,void *unused){LOG("HDR native library loaded");return JNI_VERSION_1_6;}
+JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_installGate(JNIEnv *env,jclass clazz){atomic_store(&gate_requested,1);return install_gate(NULL);}
 JNIEXPORT jint JNICALL Java_dev_local_miuihdr_NativeBridge_firstSignal(JNIEnv *env,jclass clazz,jobject bitmap){
  AndroidBitmapInfo info;void *pixels=NULL;
  if(AndroidBitmap_getInfo(env,bitmap,&info)!=0)return -1;

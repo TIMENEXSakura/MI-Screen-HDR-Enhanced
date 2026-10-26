@@ -6,7 +6,9 @@ android {
  namespace = "dev.local.miuihdr"
  compileSdk = 37
  buildToolsVersion = "37.0.0"
- defaultConfig { applicationId = "dev.local.miuihdr"; minSdk = 34; targetSdk = 36; versionCode = 152; versionName = "1.5.2"; ndk { abiFilters += "arm64-v8a" } }
+ ndkVersion = "30.0.16248370"
+ externalNativeBuild { cmake { path = file("experiments/recorder/src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
+ defaultConfig { applicationId = "dev.local.miuihdr"; minSdk = 34; targetSdk = 36; versionCode = 155; versionName = "1.5.5"; ndk { abiFilters += "arm64-v8a" } }
  sourceSets.getByName("main") { manifest.srcFile("AndroidManifest.xml"); java.srcDirs("src"); res.srcDirs("res"); assets.srcDirs("assets"); jniLibs.srcDirs("lib"); resources.srcDirs("module-resources") }
  buildFeatures { compose = true }
  compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }

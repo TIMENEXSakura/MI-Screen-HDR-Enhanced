@@ -1,5 +1,6 @@
 #!/system/bin/sh
 . "$MODDIR/backend.sh"
+. "$MODDIR/render-control.sh"
 hdr_payload_for() {
  local target="$1"
  case "$target" in *[!A-Za-z0-9_./+@-]*|*'/../'*|*'/./'*|*'//'*) return 1;; esac
@@ -26,6 +27,7 @@ HDR_CONFIG_OK=0
 if hdr_load_target; then HDR_CONFIG_OK=1; fi
 hdr_sha() { local value; value=$(sha256sum "$1" 2>/dev/null) || return 1; printf '%s\n' "${value%% *}"; }
 hdr_error() {
+ render_restore failed
  printf 'ERROR: %s\n' "$1" >> "$MODDIR/rollback.txt"
  touch "$MODDIR/disable" "$MODDIR/skip_mount" "$MODDIR/skip_mountify"
 }

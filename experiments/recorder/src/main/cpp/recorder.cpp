@@ -31,7 +31,8 @@ class Engine {
     std::thread thread;
     std::mutex mutex;
     std::condition_variable wake;
-    bool quitting=false, available=false, initialized=false;
+    bool quitting=false, available=false, initialized=false, active=true;
+    int64_t baseTimestamp=0, firstTimestamp=0;
     std::string error, driver;
     uint64_t acquired=0, rendered=0, rateLimited=0, badTimestamps=0;
     double totalMs=0, maxMs=0;
@@ -62,6 +63,11 @@ class Engine {
                 }
                 int64_t timestamp=0;
                 require(AImage_getTimestamp(image.get(),&timestamp)==AMEDIA_OK,"Missing capture timestamp");
+                int64_t outputTimestamp=timestamp;
+                { std::lock_guard<std::mutex> lock(mutex);
+                  if(!active) continue;
+                  if(baseTimestamp>0) { if(firstTimestamp==0) firstTimestamp=timestamp; outputTimestamp=baseTimestamp+timestamp-firstTimestamp; }
+                }
                 FrameGate::Result decision=gate.accept(timestamp);
                 { std::lock_guard<std::mutex> lock(mutex); acquired++; if(decision==FrameGate::RateLimited) rateLimited++; if(decision==FrameGate::Invalid) badTimestamps++; }
                 if(decision!=FrameGate::Accepted) continue;
@@ -69,7 +75,7 @@ class Engine {
                 AHardwareBuffer_Desc desc{}; AHardwareBuffer_describe(buffer,&desc);
                 require(desc.format==AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM || desc.format==AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM,"Capture format changed; this test requires SDR RGBA input");
                 AImageCropRect crop{}; require(AImage_getCropRect(image.get(),&crop)==AMEDIA_OK && crop.left>=0 && crop.top>=0 && crop.right>crop.left && crop.bottom>crop.top && crop.right<=static_cast<int32_t>(desc.width) && crop.bottom<=static_cast<int32_t>(desc.height),"Invalid capture crop");
-                auto start=Clock::now(); renderer->render(std::move(image),timestamp);
+                auto start=Clock::now(); renderer->render(std::move(image),outputTimestamp);
                 double ms=std::chrono::duration<double,std::milli>(Clock::now()-start).count();
                 { std::lock_guard<std::mutex> lock(mutex); rendered++; totalMs+=ms; maxMs=std::max(maxMs,ms); }
             }
@@ -83,7 +89,7 @@ class Engine {
 public:
     void init(ANativeWindow* window,int w,int h,int rate,bool vk) {
         encoder=window; width=w; height=h; fps=rate; vulkan=vk;
-        require(w>0 && h>0 && w<=8192 && h<=8192 && (rate==30 || rate==60),"Invalid capture settings");
+        require(w>0 && h>0 && w<=8192 && h<=8192 && (rate>=1 && rate<=240),"Invalid capture settings");
         require(AImageReader_newWithUsage(width,height,AIMAGE_FORMAT_RGBA_8888,AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE,6,&reader)==AMEDIA_OK,"RGBA capture reader unavailable");
         require(AImageReader_getWindow(reader,&input)==AMEDIA_OK && input,"Capture input Surface unavailable");
         AImageReader_ImageListener listener{this,onImage}; require(AImageReader_setImageListener(reader,&listener)==AMEDIA_OK,"Capture listener unavailable");
@@ -91,8 +97,13 @@ public:
         std::unique_lock<std::mutex> lock(mutex); wake.wait(lock,[&]{return initialized;}); require(error.empty(),error);
     }
     ANativeWindow* window() const { return input; }
+    void configure(bool enabled,int64_t base) {
+        std::lock_guard<std::mutex> lock(mutex); active=enabled;
+        if(base>0 && baseTimestamp!=base) { baseTimestamp=base; firstTimestamp=0; }
+    }
+    void requestStop() { std::lock_guard<std::mutex> lock(mutex); quitting=true; wake.notify_all(); }
     void stop() {
-        { std::lock_guard<std::mutex> lock(mutex); quitting=true; wake.notify_all(); }
+        requestStop();
         if(thread.joinable()) thread.join();
     }
     std::string stats() {
@@ -127,4 +138,11 @@ extern "C" JNIEXPORT jstring JNICALL Java_dev_local_recorderlab_NativeBridge_sto
     if(!handle) return env->NewStringUTF("{}");
     std::unique_ptr<Engine> engine(reinterpret_cast<Engine*>(handle)); engine->stop();
     return env->NewStringUTF(engine->stats().c_str());
+}
+
+extern "C" JNIEXPORT void JNICALL Java_dev_local_recorderlab_NativeBridge_configure(JNIEnv*,jclass,jlong handle,jboolean active,jlong base) {
+    if(handle) reinterpret_cast<Engine*>(handle)->configure(active,base);
+}
+extern "C" JNIEXPORT void JNICALL Java_dev_local_recorderlab_NativeBridge_requestStop(JNIEnv*,jclass,jlong handle) {
+    if(handle) reinterpret_cast<Engine*>(handle)->requestStop();
 }

@@ -15,4 +15,5 @@ cat /proc/sys/kernel/random/boot_id > "$MODDIR/boot-pending"
 if ! hdr_resetprop -n debug.sf.local_tonemap_screenshots true || ! hdr_resetprop -n debug.sf.true_hdr_screenshots true; then
  hdr_error 'HDR properties could not be set with the active Root provider.'; exit 0
 fi
+render_prepare
 printf 'PATCH_PREPARED; waiting for boot completion and process stability.\n' > "$MODDIR/boot-check.txt"

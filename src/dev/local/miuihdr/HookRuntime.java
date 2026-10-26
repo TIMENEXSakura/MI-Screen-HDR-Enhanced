@@ -12,6 +12,7 @@ final class HookRuntime {
  private static XposedInterface framework;
  private static int hooks;
  static void initialize(XposedInterface api){framework=api;}
+ static boolean deoptimize(java.lang.reflect.Executable method){return framework.deoptimize(method);}
  static int count(){return hooks;}
  static int apiVersion(){return framework==null?0:framework.getApiVersion();}
  static void log(String message){

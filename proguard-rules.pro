@@ -5,3 +5,5 @@
 -keepclassmembers class * { native <methods>; }
 -dontwarn io.github.libxposed.annotation.**
 -keep class dev.local.miuihdr.ModuleEntry { public <init>(); *; }
+
+-keep class dev.local.recorderlab.NativeBridge { *; }

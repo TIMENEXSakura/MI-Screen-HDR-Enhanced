@@ -7,13 +7,17 @@ public final class ModuleEntry extends XposedModule {
  private boolean installed,eligible;
  @Override public void onModuleLoaded(ModuleLoadedParam param){
   process=param.getProcessName();
-  eligible=!param.isSystemServer()&&(process.equals("com.miui.screenshot")||process.startsWith("com.miui.screenshot:"));
+  eligible=!param.isSystemServer()&&(process.equals("com.miui.screenshot")||process.startsWith("com.miui.screenshot:")||process.equals("com.miui.screenrecorder")||process.startsWith("com.miui.screenrecorder:"));
   if(!eligible){detach();return;}
   HookRuntime.initialize(this);
   HookRuntime.log("Module API="+getApiVersion()+" target=102 framework="+getFrameworkName()+" process="+process);
  }
  @Override public void onPackageReady(PackageReadyParam param){
-  if(!eligible||installed||!param.getPackageName().equals("com.miui.screenshot"))return;
+  if(!eligible||installed)return;
+  if(param.getPackageName().equals("com.miui.screenrecorder")){
+   installed=true;RecorderHook.install(param.getClassLoader(),process);return;
+  }
+  if(!param.getPackageName().equals("com.miui.screenshot"))return;
   installed=true;MiuiHook.install(param.getClassLoader(),process);
   HookRuntime.log("Modern interceptor hooks installed="+HookRuntime.count()+" nativeLoaded="+NativeBridge.loaded+" nativeGate="+NativeBridge.gate);
  }

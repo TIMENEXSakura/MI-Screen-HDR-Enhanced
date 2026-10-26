@@ -42,7 +42,7 @@ public final class MainActivity extends Activity {
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom); return insets;
         });
         text(layout, "录屏后端测试", 28);
-        text(layout, "独立实验应用 · 0.1\n仅测试无声 SDR 录屏。不会替换小米录屏或修改系统库。", 14);
+        text(layout, "HDR 增强 1.5.5 · 录屏测试\n仅测试无声 SDR 录屏。录屏测试不会替换小米录屏软件。", 14);
         backend = new RadioGroup(this); backend.setOrientation(RadioGroup.HORIZONTAL);
         for (int i=0;i<2;i++) { RadioButton b = new RadioButton(this); b.setId(View.generateViewId()); b.setText(i==0 ? "GLES 3" : "Vulkan"); backend.addView(b); }
         backend.check(backend.getChildAt(0).getId()); layout.addView(backend);

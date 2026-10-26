@@ -136,4 +136,38 @@ for framework,relative in [('KSU','ksu/bin/ksud'),('APATCH','apd'),('APATCH','ap
   subprocess.run(['/bin/sh','-c','. "$MODDIR/common.sh"; hdr_resetprop -n debug.sf.true_hdr_screenshots true'],env=e,check=True)
   assert (d/'property-call').read_text().strip()=='resetprop -n debug.sf.true_hdr_screenshots true'
  check('property helper fallback '+framework+' '+relative,property_fallback)
+
+def recorder_backend():
+ import uuid
+ d,e=setup('recorder-backend');nonce=str(uuid.uuid4())
+ (d/'installation.id').write_text(str(uuid.uuid4())+'\n')
+ capabilities=d/'capabilities.so';capabilities.write_bytes(b'debug.renderengine.backend\0SkiaVkRenderEngine\0')
+ e.update(HDR_TEST_LIBRARIES=str(capabilities),HDR_PROC_ROOT=str(d/'proc'))
+ (d/'mock/id').write_text('#!/bin/sh\necho 0\n');(d/'mock/id').chmod(0o755)
+ (d/'mock/dumpsys').write_text('#!/bin/sh\necho " ------------RE Vulkan (Ganesh)----------"\n');(d/'mock/dumpsys').chmod(0o755)
+ def endpoint(action,*args,code=0):
+  result=subprocess.run(['/bin/sh',str(d/'control.sh'),action,nonce,*args],env=e,capture_output=True,text=True)
+  assert result.returncode==code,(result.stdout,result.stderr)
+  return dict(line.split('=',1) for line in result.stdout.splitlines() if '=' in line)
+ endpoint('select','vulkan');assert not (d/'props').exists()
+ run(d,e,'post-fs-data.sh');assert 'skiavkthreaded' in (d/'props').read_text()
+ (d/'target.so').write_bytes(b'patched');run(d,e,'service.sh')
+ state=endpoint('status');assert state['stage']=='ready' and state['actual']=='vulkan' and state['result']=='verified'
+ assert not (d/'disable').exists()
+ process=d/'proc/8765';process.mkdir(parents=True);(process/'cmdline').write_bytes(b'com.miui.screenrecorder\0')
+ state=endpoint('report','recording','vulkan','8765');assert state['child']=='online' and state['child_backend']=='vulkan'
+ (process/'cmdline').write_bytes(b'other.app\0');assert endpoint('status')['child']=='offline'
+ assert endpoint('report','recording','vulkan','8765',code=1)['error']=='not_recorder'
+ message=(d/'boot-message').read_text();(d/'boot-message').write_text(message.replace('pid=123','pid=999'))
+ assert endpoint('status')['stage']=='stale'
+check('shared HDR module switches backend at boot and validates recorder process reports',recorder_backend)
+def renderer_mismatch():
+ d,e=setup('renderer-mismatch')
+ capabilities=d/'capabilities.so';capabilities.write_bytes(b'debug.renderengine.backend\0SkiaVkRenderEngine\0');e['HDR_TEST_LIBRARIES']=str(capabilities)
+ (d/'render-mode').write_text('vulkan\n')
+ (d/'mock/dumpsys').write_text('#!/bin/sh\necho "RE GLES (Ganesh)"\n');(d/'mock/dumpsys').chmod(0o755)
+ run(d,e,'post-fs-data.sh');(d/'target.so').write_bytes(b'patched');run(d,e,'service.sh')
+ assert (d/'render-mode').read_text().strip()=='default' and (d/'render-result').read_text().strip()=='not_verified'
+ assert not (d/'disable').exists(), 'backend mismatch must preserve successful HDR mounting'
+check('failed Vulkan verification cancels backend override without disabling a valid HDR patch',renderer_mismatch)
 print('ALL PASS',len(passed));print('FIXTURE_DIR',base)

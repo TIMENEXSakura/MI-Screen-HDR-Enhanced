@@ -15,6 +15,12 @@ final class RecorderModuleBridge {
     private static long lastRoot, lastAttempt=-10000;
     private static boolean busy;
     private record Child(int pid,String phase,String backend,long time){}
+    private static Child currentChild(long now) {
+        return children.values().stream().filter(c->now-c.time<30000)
+            .max(Comparator.<Child>comparingInt(c->switch(c.phase){
+                case "recording"->5;case "error"->4;case "unsupported"->3;case "prepared"->2;case "idle"->1;default->0;
+            }).thenComparingLong(c->c.time)).orElse(null);
+    }
     static synchronized boolean recording() {
         return children.values().stream().anyMatch(c->c.phase.equals("recording")&&SystemClock.elapsedRealtime()-c.time<30000);
     }
@@ -25,8 +31,7 @@ final class RecorderModuleBridge {
     }
     static synchronized String summary() {
         long now=SystemClock.elapsedRealtime();
-        Child child=children.values().stream().filter(c->now-c.time<30000&&c.phase.equals("recording")).findFirst()
-            .orElseGet(()->children.values().stream().filter(c->now-c.time<30000).findFirst().orElse(null));
+        Child child=currentChild(now);
         String recorder=child==null?"等待小米录屏回报":child.phase.equals("recording")?"正在使用 "+child.backend+" 录屏":child.phase.equals("unsupported")?"录屏接口未适配":child.phase.equals("error")?"录屏后端异常":"录屏注入已加载";
         return (now-lastRoot>35000?"底层通讯等待验证":rootStatus)+"\n"+recorder;
     }
@@ -37,9 +42,10 @@ final class RecorderModuleBridge {
         if(!List.of("loaded","prepared","recording","idle","error","unsupported").contains(phase) || !List.of("gles","vulkan","idle").contains(backend))throw new IllegalArgumentException("Invalid recorder status");
         children.put(pid,new Child(pid,phase,backend,SystemClock.elapsedRealtime()));
         children.values().removeIf(c->SystemClock.elapsedRealtime()-c.time>30000);
-        Child child=children.values().stream().filter(c->c.phase.equals("recording")).findFirst().orElse(children.get(pid));
+        Child child=currentChild(SystemClock.elapsedRealtime());
         if(!busy){busy=true;lastAttempt=SystemClock.elapsedRealtime();io.execute(()->update("report",child.phase+" "+child.backend+" "+child.pid));}
         Bundle response=new Bundle();response.putString("nonce",nonce);
+        response.putString("recorder_phase",child.phase);response.putString("recorder_backend",child.backend);
         response.putString("root_status",SystemClock.elapsedRealtime()-lastRoot>35000?"底层通讯等待验证":rootStatus);
         response.putString("selected",root.getOrDefault("selected","default"));response.putString("actual",root.getOrDefault("actual","unknown"));response.putString("message",message);
         return response;

@@ -14,6 +14,7 @@ final class RecorderCommunication {
     private static Context context;
     private static boolean started;
     static volatile String systemSelected="default", systemActual="unknown", rootStatus="等待底层通讯", message="";
+    private static volatile String recorderPhase="loaded", recorderBackend="idle";
     static synchronized void start(Context app,String process) {
         if(started)return;started=true;context=app.getApplicationContext();
         io.scheduleWithFixedDelay(RecorderCommunication::exchange,0,10,TimeUnit.SECONDS);
@@ -47,12 +48,16 @@ final class RecorderCommunication {
             Bundle reply=context.getContentResolver().call(URI,"recorder_ping",null,request);
             if(reply==null || !nonce.equals(reply.getString("nonce")))throw new IllegalStateException("通讯响应未通过校验");
             rootStatus=reply.getString("root_status","等待底层通讯");systemSelected=reply.getString("selected","default");systemActual=reply.getString("actual","unknown");message=reply.getString("message","");
-        }catch(Throwable e){rootStatus="主模块通讯失败："+e.getMessage();}
+            recorderPhase=reply.getString("recorder_phase","loaded");recorderBackend=reply.getString("recorder_backend","idle");
+        }catch(Throwable e){rootStatus="主模块通讯失败："+e.getMessage();recorderPhase="unknown";recorderBackend="idle";}
         main.post(RecorderPreferences::refresh);
     }
     static String summary(){
-        String renderer=RecorderHook.phase.equals("recording")?(RecorderHook.actual.equals("vulkan")?"正在使用 Vulkan 录屏":"正在使用小米 GLES 录屏"):
-            RecorderHook.phase.equals("error")?"录屏后端发生错误":RecorderHook.compatible?"录屏注入已加载，等待开始录制":"录屏接口未适配";
+        boolean recording=RecorderHook.phase.equals("recording")||recorderPhase.equals("recording");
+        String backend=RecorderHook.phase.equals("recording")?RecorderHook.actual:recorderBackend;
+        String renderer=recording?(backend.equals("vulkan")?"正在使用 Vulkan 录屏":"正在使用小米 GLES 录屏"):
+            RecorderHook.phase.equals("error")||recorderPhase.equals("error")?"录屏后端发生错误":
+            !RecorderHook.compatible||recorderPhase.equals("unsupported")?"录屏接口未适配":"录屏注入已加载，等待开始录制";
         return rootStatus+"\n"+renderer+"\n系统实际后端："+systemActual+"\n"+message;
     }
 }

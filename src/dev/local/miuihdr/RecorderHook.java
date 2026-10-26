@@ -90,8 +90,9 @@ final class RecorderHook {
         });
         HookRuntime.add(initialize,new HookRuntime.Callback(){@Override protected void before(HookRuntime.Call c){
             Context app=context;
-            if(!compatible || app==null || !"vulkan".equals(app.getSharedPreferences("mi_hdr_recorder",0).getString("backend","gles")))return;
+            if(!compatible || app==null)return;
             try {
+                if(!"vulkan".equals(RecorderCommunication.renderer(app)))return;
                 Object recorder=configuring.get();if(recorder==null)throw new IllegalStateException("Unknown encoder construction path");
                 int rate=(Integer)fps.invoke(settings.get(recorder));
                 long handle=NativeBridge.create((Surface)c.args[0],width.getInt(c.thisObject),height.getInt(c.thisObject),rate,true);
@@ -103,7 +104,7 @@ final class RecorderHook {
                 c.setResult(null);phase="prepared";actual="vulkan";detail="Vulkan 后端已初始化，等待开始录制";
             }catch(Throwable e){
                 phase="error";actual="idle";detail=e.toString();
-                c.setThrowable(new IllegalStateException("Vulkan 初始化失败；未回退 GLES",e));notifyError(detail);
+                c.setThrowable(new IllegalStateException("无法启用所选录屏后端；未静默切换后端",e));notifyError(detail);
             }
         }});
         for(Method target:new Method[]{current,texture})HookRuntime.add(target,new HookRuntime.Callback(){@Override protected void before(HookRuntime.Call c){if(sessions.containsKey(c.thisObject))c.setResult(null);}});
@@ -117,10 +118,11 @@ final class RecorderHook {
             try {callbackStop.invoke(callback.get(c.thisObject));}catch(Throwable e){HookRuntime.log("Recorder stop callback: "+e);}
         }});
         HookRuntime.add(start,new HookRuntime.Callback(){@Override protected void after(HookRuntime.Call c){
-            if(c.hasThrowable()){phase="error";detail="小米录屏未能开始";return;}
+            if(c.hasThrowable()){phase="error";detail="小米录屏未能开始";RecorderCommunication.ping();return;}
             phase="recording";if(active==null)actual="gles";
+            RecorderCommunication.ping();
         }});
-        HookRuntime.add(stop,new HookRuntime.Callback(){@Override protected void after(HookRuntime.Call c){phase="idle";actual="idle";}});
+        HookRuntime.add(stop,new HookRuntime.Callback(){@Override protected void after(HookRuntime.Call c){phase="idle";actual="idle";RecorderCommunication.ping();}});
     }
     private static void check() {
         try {

@@ -19,6 +19,22 @@ final class RecorderCommunication {
         io.scheduleWithFixedDelay(RecorderCommunication::exchange,0,10,TimeUnit.SECONDS);
     }
     static void ping(){if(started)io.execute(RecorderCommunication::exchange);}
+    // Xiaomi's UI and :core service are different processes. SharedPreferences
+    // caches in the recorder cannot be used to propagate a backend selection.
+    static String renderer(Context app) {
+        Bundle reply=app.getContentResolver().call(URI,"recorder_settings",null,null);
+        String backend=reply==null?"":reply.getString("backend","");
+        if(!backend.equals("gles")&&!backend.equals("vulkan"))throw new IllegalStateException("无法读取录屏后端设置");
+        return backend;
+    }
+    static boolean selectRenderer(Context app,String mode) {
+        try {
+            Bundle request=new Bundle();request.putString("backend",mode);
+            Bundle reply=app.getContentResolver().call(URI,"recorder_configure",null,request);
+            if(reply==null||!mode.equals(reply.getString("backend")))throw new IllegalStateException("后端设置未确认");
+            return true;
+        }catch(Throwable e){RecorderHook.notifyError("后端未保存："+e.getMessage());return false;}
+    }
     static void selectSystem(String mode){if(started)io.execute(()->{
         try {Bundle request=new Bundle();request.putString("mode",mode);context.getContentResolver().call(URI,"recorder_select",null,request);message="正在保存底层选择，成功后需手动重启。";}
         catch(Throwable e){message="底层选择未保存："+e.getMessage();}

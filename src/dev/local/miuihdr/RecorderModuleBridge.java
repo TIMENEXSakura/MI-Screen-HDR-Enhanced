@@ -15,6 +15,9 @@ final class RecorderModuleBridge {
     private static long lastRoot, lastAttempt=-10000;
     private static boolean busy;
     private record Child(int pid,String phase,String backend,long time){}
+    static synchronized boolean recording() {
+        return children.values().stream().anyMatch(c->c.phase.equals("recording")&&SystemClock.elapsedRealtime()-c.time<30000);
+    }
     static synchronized void refresh() {
         long now=SystemClock.elapsedRealtime();
         if(busy || now-lastAttempt<10000)return;
@@ -44,7 +47,7 @@ final class RecorderModuleBridge {
     static synchronized Bundle select(Bundle request) {
         String mode=request==null?"":request.getString("mode","");
         if(!List.of("default","gles","vulkan").contains(mode))throw new IllegalArgumentException("Invalid backend");
-        if(children.values().stream().anyMatch(c->c.phase.equals("recording")&&SystemClock.elapsedRealtime()-c.time<30000))throw new IllegalStateException("请先停止录屏");
+        if(recording())throw new IllegalStateException("请先停止录屏");
         if(busy)throw new IllegalStateException("底层通讯进行中，请稍后重试");
         busy=true;message="正在保存底层选择";io.execute(()->update("select",mode));
         Bundle reply=new Bundle();reply.putBoolean("queued",true);return reply;

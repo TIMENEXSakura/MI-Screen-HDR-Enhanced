@@ -21,10 +21,12 @@ final class RecorderPreferences {
         entries=list.getMethod("h1",CharSequence[].class); values=list.getMethod("j1",CharSequence[].class); value=list.getMethod("k1",String.class);
         listen=preference.getMethod("z0",change);key=RecorderHook.field(preference,"q",String.class);
         screen=fragment.getMethod("g2");add=Class.forName("androidx.preference.PreferenceGroup",false,loader).getMethod("N0",preference);
+        Constructor<?> statusConstructor=Class.forName("miuix.preference.TextPreference",false,loader).getConstructor(Context.class,AttributeSet.class);
         HookRuntime.add(RecorderHook.method(fragment,"H0",Bundle.class),new HookRuntime.Callback(){@Override protected void after(HookRuntime.Call call)throws Throwable{
             if(call.hasThrowable() || statusRows.containsKey(call.thisObject))return;
             Object root=screen.invoke(call.thisObject);
             Context context=(Context)preference.getMethod("n").invoke(root);
+            String selectedRenderer=RecorderCommunication.renderer(context);
             Object renderer=newList(context,"mi_hdr_recorder_backend","录屏渲染后端（实验）",
                 new String[]{"GLES（小米原生）","Vulkan（实验）"},new String[]{"gles","vulkan"});
             Object handler=Proxy.newProxyInstance(loader,new Class[]{change},(proxy,method,args)->{
@@ -32,10 +34,10 @@ final class RecorderPreferences {
                 String mode=String.valueOf(args[1]);
                 if(!mode.equals("gles")&&!mode.equals("vulkan"))return false;
                 if(!RecorderHook.compatible || RecorderHook.phase.equals("recording")){RecorderHook.notifyError("当前无法更改录屏后端");return false;}
-                return context.getSharedPreferences("mi_hdr_recorder",0).edit().putString("backend",mode).commit();
+                return RecorderCommunication.selectRenderer(context,mode);
             });
             listen.invoke(renderer,handler);add.invoke(root,renderer);
-            value.invoke(renderer,context.getSharedPreferences("mi_hdr_recorder",0).getString("backend","gles"));
+            value.invoke(renderer,selectedRenderer);
             summary.invoke(renderer,"下次录屏生效。保留小米的音频、编码和保存流程；Vulkan 失败不会静默回退。");
             Object system=newList(context,"mi_hdr_system_backend","系统合成后端（重启生效）",
                 new String[]{"系统默认","GLES","Vulkan"},new String[]{"default","gles","vulkan"});
@@ -48,7 +50,7 @@ final class RecorderPreferences {
             }));
             add.invoke(root,system);value.invoke(system,RecorderCommunication.systemSelected);
             summary.invoke(system,"与 HDR 修复共用底层模块，影响整个系统。保存后请手动重启。");
-            Object status=Class.forName("miuix.preference.TextPreference",false,loader).getConstructor(Context.class,AttributeSet.class).newInstance(context,null);
+            Object status=statusConstructor.newInstance(context,null);
             key.set(status,"mi_hdr_recorder_status");title.invoke(status,"HDR 增强 · 录屏模块状态");summary.invoke(status,RecorderCommunication.summary());add.invoke(root,status);
             statusRows.put(call.thisObject,new Object[]{status,system});
         }});

@@ -56,14 +56,21 @@ public final class MainActivity extends Activity {
             if (RecordingService.active) return;
             if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
                 requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 20);
-            MediaProjectionManager manager = getSystemService(MediaProjectionManager.class);
-            startActivityForResult(manager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay()), 21);
+            else requestProjection();
         });
         Button stop = new Button(this); stop.setText("停止并保存"); layout.addView(stop);
         stop.setOnClickListener(v -> { if (RecordingService.active) startService(new Intent(this, RecordingService.class).setAction("stop")); });
         text(layout, "视频：Movies/MI-Recorder-Test\n报告：Download/MI-Recorder-Test\n建议相同游戏场景分别录制。报告中的帧率属于录屏，不代表游戏帧率。", 14);
         status = new TextView(this); status.setTextIsSelectable(true); layout.addView(status);
         text(layout, "", 12); new SystemBackend(this, layout);
+    }
+    private void requestProjection() {
+        MediaProjectionManager manager = getSystemService(MediaProjectionManager.class);
+        startActivityForResult(manager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay()), 21);
+    }
+    @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] grants) {
+        super.onRequestPermissionsResult(request, permissions, grants);
+        if (request == 20 && !RecordingService.active) requestProjection();
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);

@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 
 public final class RecordingService extends Service {
     static volatile boolean active;
@@ -115,13 +116,13 @@ public final class RecordingService extends Service {
             display = projection.createVirtualDisplay("RecorderLab-" + backend, width, height,
                 getResources().getDisplayMetrics().densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, input, null, null);
             begin = SystemClock.elapsedRealtime(); cpu = android.os.Process.getElapsedCpuTime();
-            long lastStats = 0, eosAt = 0; int track = -1;
+            long lastStats = 0, eosAt = 0, stopRequestedAt = 0; int track = -1;
             MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
             while (true) {
                 long now = SystemClock.elapsedRealtime();
                 if (eosAt == 0 && stoppingEngine == null && (stopping || now - begin >= seconds * 1000L)) {
                     display.release(); display = null;
-                    long closing = engine; engine = 0;
+                    long closing = engine; engine = 0; stopRequestedAt = now;
                     stoppingEngine = new FutureTask<>(() -> NativeBridge.stop(closing));
                     new Thread(stoppingEngine, "recorder-finish-gpu").start();
                 }
@@ -129,6 +130,8 @@ public final class RecordingService extends Service {
                     nativeStats = stoppingEngine.get();
                     codec.signalEndOfInputStream(); eosAt = now;
                 }
+                if (stopRequestedAt != 0 && eosAt == 0 && now - stopRequestedAt > 10000)
+                    throw new IllegalStateException("GPU 停止等待超时，请保留报告。");
                 if (engine != 0 && now - lastStats >= 1000) {
                     nativeStats = NativeBridge.stats(engine); lastStats = now;
                     String nativeError = new JSONObject(nativeStats).optString("error");
@@ -165,7 +168,7 @@ public final class RecordingService extends Service {
             // Abort codec input first on errors so a blocked GPU presentation can exit.
             if (!error.isBlank() && codec != null) try { codec.stop(); } catch (Exception ignored) { }
             if (engine != 0) try { nativeStats = NativeBridge.stop(engine); } catch (Throwable e) { error += "\n" + e; }
-            if (stoppingEngine != null) try { nativeStats = stoppingEngine.get(); } catch (Exception e) { error += "\n" + e; }
+            if (stoppingEngine != null) try { nativeStats = stoppingEngine.get(5, TimeUnit.SECONDS); } catch (Exception e) { error += "\n" + e; }
             if (projection != null) try { projection.stop(); } catch (Exception ignored) { }
             if (input != null) input.release();
             if (codec != null) { try { codec.stop(); } catch (Exception ignored) { } codec.release(); }

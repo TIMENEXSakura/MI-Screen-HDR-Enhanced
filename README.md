@@ -20,6 +20,7 @@
 ## 使用条件
 
 - 使用小米系统截屏的 Android 14 及以上、ARM64 设备。
+- 设备支持Google Ultra HDR特性。
 - 已获取 Root，使用 Magisk、KernelSU（含 SukiSU）或 APatch。
 - 已安装支持 **API 102** 的 **LSPosed** 实现。
 

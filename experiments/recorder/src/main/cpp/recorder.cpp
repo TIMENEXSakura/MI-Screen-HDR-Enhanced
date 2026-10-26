@@ -1,6 +1,7 @@
 #include "graphics.h"
 #include "frame_gate.h"
 #include "fence_wait.h"
+#include "capture_frame.h"
 #include <android/native_window_jni.h>
 #include <android/log.h>
 #include <media/NdkImageReader.h>
@@ -27,6 +28,8 @@ std::string jsonString(const std::string& value) {
     }
     return out.str()+'"';
 }
+struct ReleaseCapture { void operator()(AImage* image,int fence) const { AImage_deleteAsync(image,fence); } };
+using PendingImage=CaptureFrame<AImage,ReleaseCapture>;
 class Engine {
     AImageReader* reader=nullptr;
     ANativeWindow* encoder=nullptr;
@@ -58,17 +61,21 @@ class Engine {
             FrameGate gate(fps);
             while(true) {
                 { std::unique_lock<std::mutex> lock(mutex); wake.wait(lock,[&]{return quitting||available;}); if(quitting) break; available=false; }
-                AImage* raw=nullptr; int fence=-1;
-                media_status_t result=AImageReader_acquireLatestImageAsync(reader,&raw,&fence);
-                if(result==AMEDIA_IMGREADER_NO_BUFFER_AVAILABLE) continue;
-                require(result==AMEDIA_OK && raw,"Cannot acquire capture image: "+std::to_string(result));
-                // On timeout/cancellation, return the pending producer fence with
-                // the image. Closing it and recycling the buffer early is unsafe.
-                struct PendingImage {
-                    ImagePtr image; int fence;
-                    ~PendingImage(){if(image&&fence>=0)AImage_deleteAsync(image.release(),fence);else if(fence>=0)close(fence);}
-                    void ready(){if(fence>=0)close(std::exchange(fence,-1));}
-                } pending{imagePtr(raw),fence};
+                // Acquire each image/fence pair separately. Some implementations
+                // of acquireLatestImageAsync reuse the newest fd while releasing
+                // older images; never rely on that path for fence ownership.
+                auto pending=acquireNewestFrame<PendingImage>([&] {
+                    AImage* raw=nullptr;int fence=-1;
+                    auto result=AImageReader_acquireNextImageAsync(reader,&raw,&fence);
+                    if(result==AMEDIA_IMGREADER_NO_BUFFER_AVAILABLE)return PendingImage{};
+                    require(result==AMEDIA_OK&&raw,"Cannot acquire capture image: "+std::to_string(result));
+                    return PendingImage{raw,fence};
+                },6);
+                if(!pending)continue;
+                // A bounded drain may leave queued input; probe it once more even
+                // if the producer has stopped sending onImageAvailable callbacks.
+                {std::lock_guard<std::mutex> lock(mutex);available=true;}
+                const int fence=pending.fence;
                 if(fence>=0) {
                     int limit;bool fatal;
                     {std::lock_guard<std::mutex> lock(mutex);limit=fenceTimeoutMs;fatal=fatalTimeout;}
@@ -83,7 +90,7 @@ class Engine {
                     }
                     require(waited.state==FenceState::Ready,"Capture fence wait failed: errno="+std::to_string(waited.error)+", events="+std::to_string(waited.events)+", waited_ms="+std::to_string(waited.elapsedMs));
                 }
-                pending.ready();auto image=std::move(pending.image);
+                pending.ready();auto image=imagePtr(pending.releaseImage());
                 int64_t timestamp=0;
                 require(AImage_getTimestamp(image.get(),&timestamp)==AMEDIA_OK,"Missing capture timestamp");
                 int64_t outputTimestamp=timestamp;

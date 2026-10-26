@@ -52,4 +52,6 @@ with ZipFile(apk) as archive:
     recorder=archive.read('lib/arm64-v8a/librecorderlab.so')
     assert b'vkQueuePresentKHR' in recorder and b'Java_dev_local_recorderlab_NativeBridge_configure' in recorder
     assert b'Java_dev_local_recorderlab_NativeBridge_setInputWait' in recorder
+    assert b'AImageReader_acquireNextImageAsync' in recorder
+    assert b'AImageReader_acquireLatestImageAsync' not in recorder
     print('PASS generated-module template; no vendor system libraries bundled')

@@ -41,3 +41,5 @@
 模块源码位于 `test/hdr155-recorder`，专用工作流为 `.github/workflows/hdr155-recorder-test.yml`。工作流只有读权限，没有发布或写入 Tag 的步骤。`experiments/recorder` 保留独立引擎测试用源码，集成 APK 不提供独立录屏 Activity 或录屏服务。
 
 输入帧等待使用可取消的绝对期限；超时计数独立于致命错误。未就绪的图像连同同步信号一起通过 `AImage_deleteAsync` 交还，避免提前复用仍在写入的画面。参见 [Android NDK 图像接口](https://developer.android.com/ndk/reference/group/media)。主机测试覆盖就绪、超时后下一帧、取消、无效描述符和信号中断，实际 GPU 缓冲区行为仍需真机验证。
+
+取帧改用 `acquireNextImageAsync` 逐张接收并成对管理图像与同步信号，再有界丢弃旧帧。检查到的 [AOSP ImageReader 实现](https://android.googlesource.com/platform/frameworks/av/+/refs/heads/main/media/ndk/NdkImageReader.cpp) 在异步获取最新帧时，连续取帧复用了同步信号输出变量；本次不依赖这条批量丢帧路径。尚未证明本机二进制存在相同行为，不能据此断定它就是此前中断的原因。额外主机测试覆盖图像与信号配对、有限队列清理、所有权移交和异常释放。

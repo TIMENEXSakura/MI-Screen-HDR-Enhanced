@@ -41,8 +41,8 @@ hdr_backend_check() {
   local mode
   mode=$(sed 's/#.*//;s/[[:space:]]//g' "$HDR_ADB_ROOT/mountify/config.sh" 2>/dev/null | tr -d "\"'" | sed -n 's/^mountify_mounts=\([012]\)$/\1/p' | tail -n 1)
   if [ "$mode" = 0 ]; then echo 'MOUNT_BACKEND_DISABLED: Mountify mounting is disabled.'; return 1; fi
-  if [ "$mode" = 1 ] && ! sed 's/#.*//' "$HDR_ADB_ROOT/mountify/modules.txt" 2>/dev/null | grep -q '^[[:space:]]*xiaomi17u_hdr_clamp_test[[:space:]]*$'; then
-   echo 'MOUNT_BACKEND_EXCLUDED: Add xiaomi17u_hdr_clamp_test to the Mountify selected modules first.'; return 1
+  if [ "$mode" = 1 ] && ! sed 's/#.*//' "$HDR_ADB_ROOT/mountify/modules.txt" 2>/dev/null | grep -q '^[[:space:]]*mi_screen_hdr_enhanced[[:space:]]*$'; then
+   echo 'MOUNT_BACKEND_EXCLUDED: Add mi_screen_hdr_enhanced to the Mountify selected modules first.'; return 1
   fi
  fi
 }

@@ -11,6 +11,15 @@ final class HdrCaptureImage {
     private static final WeakHashMap<Bitmap,Boolean> CREATED=new WeakHashMap<>();
     static boolean created(Bitmap bitmap){synchronized(CREATED){return CREATED.containsKey(bitmap);}}
     record Result(Bitmap bitmap,float[] report,boolean rgb){}
+    static Bitmap recoverSystemGainmap(Bitmap source) {
+        // FP16 validation can reject both RGB and scalar conversion. The
+        // independent system base + gainmap can still support ordinary pixel
+        // precision; do not pass the failed RGB preference into this stage.
+        Bitmap precise=GainmapPrecision.apply(source);
+        if(precise==source)throw new IllegalStateException("系统画面没有可用于普通精准处理的有效增益");
+        synchronized(CREATED){CREATED.put(precise,true);}
+        return precise;
+    }
     @FunctionalInterface interface Converter { Result convert(boolean rgb)throws Throwable; }
     static Result read(Bitmap source,int dataspace,float nativeRatio,boolean containsHdr,boolean preferRgb,
                        Consumer<Throwable> rgbRejected)throws Throwable {

@@ -481,11 +481,6 @@ public final class RootSetup {
   try{run(log,"current_boot_properties","/system/bin/sh","-c","PATH=/system/bin:/system/xbin:/data/adb/ksu/bin:/data/adb/ap/bin:/data/adb/magisk; resetprop -n debug.sf.local_tonemap_screenshots true && resetprop -n debug.sf.true_hdr_screenshots true");}
   catch(Exception e){log.line("CURRENT_BOOT: 属性等待下次启动设置："+e.getMessage());log.user("截图属性将于下次启动设置；挂载模块已安装。");}
   log.line("CURRENT_BOOT: 显示服务缓存由下次启动刷新，不写入进程内存。");
-  for(String root:new String[]{"/data/adb/modules","/data/adb/modules_update"}){
-   File old=new File(root,"hdr_screenshot_tonemap");if(new File(old,"module.prop").isFile()){
-    boolean created=new File(old,"disable").createNewFile();log.line("OLD_MODULE_DISABLED path="+old+" marker_created="+created);
-   }
-  }
   log.stage("complete");log.line("PASS: 挂载模块已安装，原库已备份；下次启动验证。未重启显示服务。");
   log.user("挂载模块已安装，原库已备份；下次启动验证生效，本次未重启显示服务。");
   if(log.report!=null)log.user("Root 详细诊断："+log.report);

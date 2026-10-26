@@ -136,6 +136,17 @@ final class HdrCaptureHooks {
             if(Boolean.TRUE.equals(a.secure.invoke(result))){s.put("status","protected");return null;}
             Bitmap bitmap=(Bitmap)a.asBitmap.invoke(result);
             if(bitmap==null)throw new IllegalStateException("原有截图路径未返回图片");
+            if(s.config.captureRgb||s.config.precision){
+                s.put("systemPrecisionStarted",true);
+                try{
+                    Bitmap precise=HdrCaptureImage.recoverSystemGainmap(bitmap);
+                    s.put("gainMode","normal");s.put("status","rebuilt_hdr_system_precise");
+                    describe(s,precise,"output");return precise;
+                }catch(Throwable failure){
+                    s.put("systemPrecisionFailure",failure.toString());
+                    MiuiHook.log("Ordinary system gainmap precision rejected; retaining system capture: "+failure);
+                }
+            }
             s.put("status","native_fallback");describe(s,bitmap,"output");return bitmap;
         }catch(Throwable failure){s.put("fallbackError",failure.toString());s.put("status","failed");return null;}
         finally {

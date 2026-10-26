@@ -66,7 +66,7 @@ internal fun HdrCaptureSettingsCard() {
             Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(end = 12.dp)) {
                     Text("保留 RGB 增益图", style = MaterialTheme.typography.titleMedium)
-                    Text("保留红、绿、蓝独立增益，JPG 使用质量 100 的 4:4:4 编码，并跳过像素重分配。受支持系统安装新版底层模块后，会在截图源头计算 RGB 增益；此开关不会改变取帧方式。", style = MaterialTheme.typography.bodySmall,
+                    Text("优先保留红、绿、蓝独立增益，JPG 使用质量 100 的 4:4:4 编码。RGB 获取失败后继续尝试普通精准处理。受支持系统安装新版底层模块后，会在截图源头计算 RGB 增益；此开关不会改变取帧方式。", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = s?.getBoolean("hdr_capture_rgb") == true, enabled = s != null && !busy,
@@ -79,9 +79,12 @@ internal fun HdrCaptureSettingsCard() {
                 val status = when(report?.optString("status")) {
                     "rebuilt_hdr" -> "最近一次：已重建 HDR 增益图"
                     "rebuilt_hdr_normal_fallback" -> "最近一次：RGB 读取失败，已使用普通精准读取保留 HDR"
+                    "rebuilt_hdr_system_precise" -> "最近一次：高精度读取失败，已通过系统增益图完成普通精准处理"
                     "captured_sdr_normal_fallback" -> "最近一次：RGB 读取失败，普通精准读取完成，画面为 SDR"
                     "captured_sdr" -> "最近一次：画面中未检测到有效 HDR 增益"
-                    "native_fallback" -> if(report?.optBoolean("preciseReadStarted") == true)
+                    "native_fallback" -> if(report?.optBoolean("systemPrecisionStarted") == true)
+                        "最近一次：普通精准处理也未通过，已保留原始系统截图"
+                        else if(report?.optBoolean("preciseReadStarted") == true)
                         "最近一次：精准读取均未通过校验，已回退系统截图" else "最近一次：高精度画面不可用，已回退系统截图"
                     "unsupported_native_retained" -> "最近一次：实验路径暂不可用，保留原有截图"
                     "native_gainmap_retained" -> "最近一次：系统已返回增益图，保留原结果"

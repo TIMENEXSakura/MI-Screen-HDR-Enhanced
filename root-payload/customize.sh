@@ -40,6 +40,10 @@ if ! hdr_enable_ultra_hdr > "$MODPATH/ultra-hdr-install.txt" 2>&1; then
 fi
 cat "$MODPATH/ultra-hdr-install.txt"
 ui_print '- Ultra HDR 系统开关已确认开启。'
+[ -f "$MODPATH/migrate.sh" ] || abort "模块缺少升级脚本，请重新生成。"
+. "$MODPATH/migrate.sh"
+hdr_migrate_legacy_modules > "$MODPATH/module-migration.txt" 2>&1 || abort "旧版模块停用失败，已取消本次安装，请查看 module-migration.txt。"
+cat "$MODPATH/module-migration.txt"
 ui_print "- Device library patched; original library backed up."
 ui_print "- Target: $HDR_TARGET"
 ui_print "- Root: $HDR_FRAMEWORK; mount provider: $HDR_BACKEND $HDR_META_ID"

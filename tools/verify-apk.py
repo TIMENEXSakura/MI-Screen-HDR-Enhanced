@@ -48,6 +48,8 @@ with ZipFile(apk) as archive:
         assert not any(name.endswith('.so') for name in template.namelist())
         assert 'version=1.5.9' in template.read('module.prop').decode()
         assert 'versionCode=159' in template.read('module.prop').decode()
+        assert 'id=mi_screen_hdr_enhanced\n' in template.read('module.prop').decode()
+        assert b'hdr_migrate_legacy_modules' in template.read('migrate.sh')
         patcher=template.read('bin/hdrpatch')
         shader=(Path(__file__).resolve().parents[1]/'native/shaders/rgb_gainmap.sksl').read_bytes()
         assert shader+b'\0' in patcher, 'APP must embed the exact GPU-tested RGB algorithm'

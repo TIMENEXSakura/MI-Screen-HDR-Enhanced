@@ -71,7 +71,11 @@ ui_print() { printf '%s\\n' "$*"; }
         state=fixture(behavior,'false',behavior);log=install(state,False)
         assert 'status=failed' in log and '开关已确认开启' not in log
         assert (state[0]/'value').read_text()=='false'
-    state=fixture('invalid-library',None,valid=False);install(state,False)
+    state=fixture('invalid-library',None,valid=False)
+    legacy=Path(state[2]['HDR_ADB_ROOT'])/'modules/xiaomi17u_hdr_clamp_test';legacy.mkdir(parents=True)
+    (legacy/'module.prop').write_text('id=xiaomi17u_hdr_clamp_test\n')
+    install(state,False)
+    assert not (legacy/'disable').exists(), 'failed payload checks must leave the old module enabled'
     assert not (state[0]/'writes').exists() and not (state[1]/'ultra-hdr-install.txt').exists()
     state=fixture('not-booted',None);state[2]['BOOTMODE']='false';install(state,False)
     assert not (state[0]/'writes').exists()

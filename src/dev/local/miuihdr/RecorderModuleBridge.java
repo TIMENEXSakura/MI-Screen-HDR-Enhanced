@@ -106,6 +106,7 @@ final class RecorderModuleBridge {
         String script="[ \"$(id -u)\" = 0 ] || exit 10\n"+
             "for base in /data/adb/modules /data/adb/modules_update; do\nfor directory in \"$base\"/*; do\n"+
             "[ -f \"$directory/control.sh\" ] || continue\n"+
+            "[ ! -e \"$directory/disable\" ] && [ ! -e \"$directory/remove\" ] || continue\n"+
             "[ \"$(cat \"$directory/communication.protocol\" 2>/dev/null)\" = mi-screen-hdr-enhanced/2 ] || continue\n"+
             "printf 'current_boot=%s\\n' \"$(cat /proc/sys/kernel/random/boot_id)\"\n"+
             "/system/bin/sh \"$directory/control.sh\" "+action+" "+nonce+" "+args+"\nexit $?\ndone\ndone\nexit 11";

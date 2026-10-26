@@ -142,7 +142,7 @@ java -cp build/installer-tests dev.local.miuihdr.RootInstallerTest
 
 `tests/ShellTest.java` 和 `tests/HdrInspect.java` 用于设备侧验证。带壳测试需自行提供对应的小米截图 APK 和机壳素材，仓库不分发这些文件。
 
-停用应用 Hook：在 LSPosed 中关闭模块并重启小米截屏进程。停用底层覆盖：在 Root 管理器中禁用 `xiaomi17u_hdr_clamp_test` 并重启设备。卸载 APK 不会卸载已安装的挂载模块。
+停用应用 Hook：在 LSPosed 中关闭模块并重启小米截屏进程。停用底层覆盖：在 Root 管理器中禁用 `mi_screen_hdr_enhanced` 并重启设备。卸载 APK 不会卸载已安装的挂载模块。
 
 ## 许可证与来源
 

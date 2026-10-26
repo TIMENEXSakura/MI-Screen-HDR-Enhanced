@@ -16,7 +16,7 @@ system / system_ext / product / vendor 库目录及等价别名中按原版或�
 生成包用 target.path / payload.path 记录目标，安装、启动检查及回退复用同一位置。
 当前可生成标准 system、system_ext、product、vendor 覆盖；APEX/ODM 等不支持的挂载位置明确报错。
 指令补丁仍要求匹配的 ELF64 AArch64 实现；发现32位库不代表能套用64位补丁。
-模块 ID 沿用 xiaomi17u_hdr_clamp_test，升级现有底层模块，避免两份库同时覆盖。
+正式模块 ID 为 mi_screen_hdr_enhanced。安装校验通过后停用 xiaomi17u_hdr_clamp_test 和 hdr_screenshot_tonemap（包括 modules_update 中的待更新副本），保留旧模块备份，避免重复覆盖。Mountify 手动选择需加入新 ID。
 Magisk / KernelSU / APatch 使用各自已有的挂载提供者；不限定 Mountify，也不替换全局挂载配置。
 原 hdr_screenshot_tonemap 属性模块在 APK 成功安装整合包后才被停用。
 

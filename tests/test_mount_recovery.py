@@ -97,7 +97,7 @@ def install_backend(name,framework,meta=None,legacy_mountify=False,mode=None,lis
   if meta:(adb/'metamodule').symlink_to(module)
  if mode is not None:
   config=adb/'mountify';config.mkdir();(config/'config.sh').write_text('mountify_mounts="'+str(mode)+'" # test\n')
-  (config/'modules.txt').write_text('xiaomi17u_hdr_clamp_test\n' if listed else 'other_module\n')
+  (config/'modules.txt').write_text('mi_screen_hdr_enhanced\n' if listed else 'xiaomi17u_hdr_clamp_test\n')
  if skip:(d/'skip_mount').touch()
  script='abort() { echo "$*"; exit 33; }; set_perm_recursive() { :; }; set_perm() { :; }; ui_print() { :; }; . "$MODPATH/customize.sh"'
  result=subprocess.run(['/bin/sh','-c',script],env=e,capture_output=True,text=True)

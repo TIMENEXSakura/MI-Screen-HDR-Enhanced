@@ -1,0 +1,56 @@
+name: Independent recorder GLES-Vulkan test
+on:
+  push:
+    branches: ["test/recorder-vulkan"]
+    paths: ["experiments/recorder/**", ".github/workflows/recorder-test.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: recorder-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+      - name: Install toolchain
+        shell: bash
+        run: |
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          set -o pipefail
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;37.0.0" "ndk;30.0.16248370" "cmake;3.22.1"
+      - name: Test frame pacing
+        run: |
+          mkdir -p recorder-dist
+          c++ -std=c++17 -Wall -Wextra -Werror experiments/recorder/tests/frame_gate_test.cpp -o /tmp/recorder-frame-test
+          /tmp/recorder-frame-test | tee recorder-dist/checks.txt
+      - name: Build standalone APK
+        run: |
+          ./gradlew -p experiments/recorder --no-daemon --console=plain assembleRelease lintRelease 2>&1 | tee recorder-dist/build.log
+      - name: Verify and record provenance
+        run: |
+          cp experiments/recorder/build/outputs/apk/release/*-unsigned.apk recorder-dist/MI-Recorder-Backend-Test-0.1-unsigned.apk
+          python3 experiments/recorder/verify.py recorder-dist/MI-Recorder-Backend-Test-0.1-unsigned.apk | tee -a recorder-dist/checks.txt
+          "$ANDROID_HOME/build-tools/37.0.0/aapt2" dump badging recorder-dist/MI-Recorder-Backend-Test-0.1-unsigned.apk > recorder-dist/apk-info.txt
+          cp experiments/recorder/build/reports/lint-results-release.* recorder-dist/
+          cp experiments/recorder/README.md recorder-dist/使用说明.md
+          git rev-parse HEAD > recorder-dist/commit.txt
+          echo "https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > recorder-dist/ci-url.txt
+          git archive HEAD experiments/recorder .github/workflows/recorder-test.yml | gzip > recorder-dist/source.tar.gz
+          cd recorder-dist
+          sha256sum *.apk source.tar.gz > SHA256SUMS.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: MI-Recorder-Backend-Test-${{ github.run_number }}
+          path: recorder-dist/
+          retention-days: 30

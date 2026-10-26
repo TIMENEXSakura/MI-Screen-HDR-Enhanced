@@ -46,14 +46,17 @@ with ZipFile(apk) as archive:
     with ZipFile(io.BytesIO(archive.read('assets/mount-template.zip'))) as template:
         assert 'bin/hdrpatch' in template.namelist()
         assert not any(name.endswith('.so') for name in template.namelist())
-        assert 'version=1.5.6' in template.read('module.prop').decode()
-        assert 'versionCode=156' in template.read('module.prop').decode()
+        assert 'version=1.5.9' in template.read('module.prop').decode()
+        assert 'versionCode=159' in template.read('module.prop').decode()
         patcher=template.read('bin/hdrpatch')
         shader=(Path(__file__).resolve().parents[1]/'native/shaders/rgb_gainmap.sksl').read_bytes()
         assert shader+b'\0' in patcher, 'APP must embed the exact GPU-tested RGB algorithm'
         assert b'RGB_PATCH_DETAIL supported=true algorithm=linear_rgb_v1' in patcher
         assert b'43598f06ca2c3c96b9eb243e4acb177a5ee77c01794d1cbac92c3934ae32c40e' in patcher
         assert b'hdr_install_matches' in template.read('customize.sh')
+        assert b'hdr_enable_ultra_hdr' in template.read('customize.sh')
+        assert b'persist.sys.support_ultra_hdr' in template.read('ultra-hdr.sh')
+        assert b'hdr_resetprop -n -p "$property" true' in template.read('ultra-hdr.sh')
         assert template.read('communication.protocol').strip()==b'mi-screen-hdr-enhanced/2'
         assert 'render-control.sh' in template.namelist()
     recorder=archive.read('lib/arm64-v8a/librecorderlab.so')

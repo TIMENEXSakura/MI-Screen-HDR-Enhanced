@@ -41,7 +41,7 @@ def setup(name, framework='MAGISK', provider=None):
     mock = directory / 'mock'
     mock.mkdir()
     for name, body in {
-        'getprop': 'exit 0',
+        'getprop': '[ "$1" != persist.sys.support_ultra_hdr ] || echo true; exit 0',
         'mount': 'echo unexpected-mount >> "$TEST_EVENTS"; exit 92',
         'resetprop': 'echo unexpected-resetprop >> "$TEST_EVENTS"; exit 92',
     }.items():

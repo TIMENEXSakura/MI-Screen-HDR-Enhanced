@@ -8,6 +8,7 @@ python3 tests/test_patch_probe.py
 python3 tests/test_semantic_patch.py
 python3 tests/test_rgb_patch.py
 python3 tests/test_patch_migration.py
+python3 tests/test_ultra_hdr_property.py
 mkdir -p build/host-tests
 javac -d build/host-tests src/dev/local/miuihdr/LibraryLocator.java src/dev/local/miuihdr/RootInstaller.java tests/LibraryLocatorTest.java tests/RootInstallerTest.java
 java -cp build/host-tests dev.local.miuihdr.LibraryLocatorTest

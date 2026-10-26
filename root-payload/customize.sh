@@ -31,6 +31,15 @@ for marker in boot-pending rollback.txt boot-message render-pending render-resul
  [ ! -f "$MODPATH/$marker" ] || unlink "$MODPATH/$marker"
 done
 case "$(getprop persist.sys.locale)" in zh*) sed -i 's/^name=.*/name=小米截屏HDR增强/' "$MODPATH/module.prop";; esac
+ui_print '- 正在检查 Ultra HDR 系统开关…'
+[ -f "$MODPATH/ultra-hdr.sh" ] || abort "模块缺少 Ultra HDR 设置脚本，请重新生成。"
+. "$MODPATH/ultra-hdr.sh"
+if ! hdr_enable_ultra_hdr > "$MODPATH/ultra-hdr-install.txt" 2>&1; then
+ cat "$MODPATH/ultra-hdr-install.txt"
+ abort "无法启用或确认 persist.sys.support_ultra_hdr=true，安装未完成；请查看属性诊断。"
+fi
+cat "$MODPATH/ultra-hdr-install.txt"
+ui_print '- Ultra HDR 系统开关已确认开启。'
 ui_print "- Device library patched; original library backed up."
 ui_print "- Target: $HDR_TARGET"
 ui_print "- Root: $HDR_FRAMEWORK; mount provider: $HDR_BACKEND $HDR_META_ID"

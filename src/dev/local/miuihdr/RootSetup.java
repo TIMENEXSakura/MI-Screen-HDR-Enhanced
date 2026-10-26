@@ -9,7 +9,7 @@ import java.util.zip.*;
 
 /** Generate a local install or an offline export; the APK never ships a system SO. */
 public final class RootSetup {
- private static final String VERSION="1.5.6";
+ private static final String VERSION="1.5.9";
  private static final Pattern PATCH_OFFSET=Pattern.compile("(?:^| )file_offset=(0x[0-9a-fA-F]+)(?: |$)");
  private static final class Log implements AutoCloseable {
   private final List<String> pending=new ArrayList<>();

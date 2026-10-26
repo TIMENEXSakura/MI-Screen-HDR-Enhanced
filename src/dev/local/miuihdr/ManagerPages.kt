@@ -50,7 +50,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private const val RELEASE = "1.5.6"
+private const val RELEASE = "1.5.9"
 private const val PROJECT = "https://github.com/TIMENEXSakura/MI-Screen-HDR-Enhanced"
 
 @Composable

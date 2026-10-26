@@ -15,7 +15,7 @@ final class NativeProbeEntry {
     if(!service.getClass().getName().equals("com.miui.screenshot.TakeScreenshotService")||intent==null)return;
     if(STATUS.equals(intent.getAction())){
      try{java.nio.file.Files.writeString(new java.io.File(service.getCacheDir(),"mi-screen-hdr-status.txt").toPath(),
-      "version=1.5.2\napi="+HookRuntime.apiVersion()+"\nhooks="+HookRuntime.count()+"\nnativeLoaded="+NativeBridge.loaded+"\nnativeGate="+NativeBridge.gate+"\neditorPreview="+EditorPreviewHdr.lastPreview+"\nearlyHdrTransitions="+EditorPreviewHdr.earlyTransitions+"\neditorFadesStarted="+EditorTransition.fadesStarted+"\neditorFadesFinished="+EditorTransition.fadesFinished+"\ncropFrameDraws="+EditorTransition.cropFrameDraws+"\ncropFramePartialDraws="+EditorTransition.cropFramePartialDraws+"\neditorFadeState="+EditorTransition.lastEvent+"\n");}
+      "version=1.5.9\napi="+HookRuntime.apiVersion()+"\nhooks="+HookRuntime.count()+"\nnativeLoaded="+NativeBridge.loaded+"\nnativeGate="+NativeBridge.gate+"\neditorPreview="+EditorPreviewHdr.lastPreview+"\nearlyHdrTransitions="+EditorPreviewHdr.earlyTransitions+"\neditorFadesStarted="+EditorTransition.fadesStarted+"\neditorFadesFinished="+EditorTransition.fadesFinished+"\ncropFrameDraws="+EditorTransition.cropFrameDraws+"\ncropFramePartialDraws="+EditorTransition.cropFramePartialDraws+"\neditorFadeState="+EditorTransition.lastEvent+"\n");}
      catch(Throwable t){MiuiHook.log("Status report failed: "+t);}
      return;
     }

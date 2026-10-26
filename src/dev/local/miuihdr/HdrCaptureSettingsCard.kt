@@ -99,7 +99,7 @@ internal fun HdrCaptureSettingsCard() {
                     try {
                         val latest = withContext(Dispatchers.IO) {
                             val data = context.contentResolver.call(uri,"hdr_capture_settings",null,null) ?: error("未收到诊断信息")
-                            val body = JSONObject().put("version", "1.5.6-hdr-test").put("mode", data.getString("hdr_capture_mode"))
+                            val body = JSONObject().put("version", "1.5.9").put("mode", data.getString("hdr_capture_mode"))
                                 .put("rgb", data.getBoolean("hdr_capture_rgb")).put("captures", JSONArray(data.getString("hdr_capture_history", "[]"))).toString(2)
                             val name = "hdr-capture-${SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.ROOT).format(Date())}.json"
                             val values = ContentValues().apply {

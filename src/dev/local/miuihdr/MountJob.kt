@@ -119,7 +119,7 @@ internal object MountJob {
     }
     private fun publishLog(context: Context): String {
         val folder = "${Environment.DIRECTORY_DOWNLOADS}/MI-Screen-HDR-Enhanced/logs"
-        val name = "$mode-1.5.6-${SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.ROOT).format(Date())}.txt"
+        val name = "$mode-1.5.9-${SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.ROOT).format(Date())}.txt"
         val resolver = context.contentResolver
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
@@ -242,7 +242,7 @@ internal object MountJob {
                     .putBoolean("last_job_log_incomplete", incompleteLog)
                     .putString("last_job_generated_zip", generatedZip)
                     .putInt("last_job_progress", progress).putString("last_job_phase", phase)
-                    .apply { if (!isExport && success) putString("installed_version", "1.5.6") }.apply()
+                    .apply { if (!isExport && success) putString("installed_version", "1.5.9") }.apply()
             }
         }
     }

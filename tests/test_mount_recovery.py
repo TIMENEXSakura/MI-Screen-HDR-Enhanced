@@ -16,7 +16,7 @@ def setup(name, scenario='stable', target_path='/system_ext/lib64/libsurfaceflin
  mock=d/'mock';mock.mkdir()
  commands={
  'resetprop':'echo "$*" >> "$TEST_DIR/props"',
- 'getprop':'[ "$1" != sys.boot_completed ] || { [ "$TEST_CASE" = timeout ] && echo 0 || echo 1; }',
+ 'getprop':'case "$1" in persist.sys.support_ultra_hdr) echo true;; sys.boot_completed) [ "$TEST_CASE" = timeout ] && echo 0 || echo 1;; esac',
  'sleep':':',
  'pidof':'''if [ "$TEST_CASE" = crash ]; then n=0; [ ! -f "$TEST_DIR/pids" ] || n=$(cat "$TEST_DIR/pids"); n=$((n+1)); echo "$n" > "$TEST_DIR/pids"; echo "$n"; else echo 123; fi''',
  'mount':'echo "$*" >> "$TEST_DIR/mounts"; exit 0'

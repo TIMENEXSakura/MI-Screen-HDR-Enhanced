@@ -125,6 +125,6 @@ public final class MiuiHook {
     });
    }
   }catch(Throwable t){log("Save observer unavailable: "+t);}
-  log("Installed native MIUI HDR hooks v1.5.2 process="+process);
+  log("Installed native MIUI HDR hooks v1.5.9 process="+process);
  }
 }
